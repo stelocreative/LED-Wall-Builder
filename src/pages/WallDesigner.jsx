@@ -398,6 +398,7 @@ export default function WallDesigner() {
                     gridCols={gridCols}
                     gridRows={gridRows}
                     wall={wall}
+                    onWallUpdate={handleWallUpdate}
                   />
                 </TabsContent>
 

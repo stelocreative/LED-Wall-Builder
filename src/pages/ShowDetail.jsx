@@ -100,6 +100,9 @@ export default function ShowDetail() {
     deployment_type: 'ground_stack',
     voltage_mode: '208v',
     power_strategy: 'edison_20a',
+    processor_model: 'mx30',
+    receiving_card: 'a8s',
+    color_depth: '10bit',
     width_m: DEFAULT_WALL_WIDTH_M,
     height_m: DEFAULT_WALL_HEIGHT_M
   });
@@ -161,6 +164,9 @@ export default function ShowDetail() {
       deployment_type: 'ground_stack',
       voltage_mode: '208v',
       power_strategy: 'edison_20a',
+      processor_model: 'mx30',
+      receiving_card: 'a8s',
+      color_depth: '10bit',
       width_m: DEFAULT_WALL_WIDTH_M,
       height_m: DEFAULT_WALL_HEIGHT_M
     });
@@ -177,6 +183,9 @@ export default function ShowDetail() {
       deployment_type: wall.deployment_type || 'ground_stack',
       voltage_mode: wall.voltage_mode || '208v',
       power_strategy: wall.power_strategy || 'edison_20a',
+      processor_model: wall.processor_model || 'mx30',
+      receiving_card: wall.receiving_card || 'a8s',
+      color_depth: wall.color_depth || '10bit',
       width_m: widthM > 0 ? Number(widthM.toFixed(2)) : DEFAULT_WALL_WIDTH_M,
       height_m: heightM > 0 ? Number(heightM.toFixed(2)) : DEFAULT_WALL_HEIGHT_M
     });

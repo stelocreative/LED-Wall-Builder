@@ -1,4 +1,10 @@
 import React, { forwardRef } from 'react';
+import {
+  getDataCapacity,
+  getRunPixelLoad,
+  getWallPixelLoad,
+  parsePortIndex
+} from '@/lib/processor-catalog';
 
 const DeploymentSheet = forwardRef(({ 
   show, 
@@ -17,6 +23,30 @@ const DeploymentSheet = forwardRef(({
   const mmToFt = (mm) => (mm / 304.8).toFixed(2);
   const kgToLbs = (kg) => (kg * 2.205).toFixed(1);
   const voltage = wall?.voltage_mode === '120v' ? 120 : 208;
+  const processorModel = wall?.processor_model || 'mx30';
+  const receivingCard = wall?.receiving_card || 'a8s';
+  const colorDepth = wall?.color_depth || '10bit';
+  const dataCapacity = getDataCapacity({ processorModel, receivingCard, colorDepth });
+  const totalWallPixelsForData = getWallPixelLoad(layout, cabinets);
+  const dataRunMetrics = dataRuns.map((run) => {
+    const pixelLoad = run.pixel_load ?? getRunPixelLoad(run, layout, cabinets);
+    const portIndex = run.processor_port_index || parsePortIndex(run.processor_port);
+    return {
+      runId: run.id,
+      pixelLoad,
+      portIndex,
+      overPortBudget: pixelLoad > dataCapacity.perPortPixelBudget,
+      overPortCount: (portIndex || 0) > dataCapacity.ethernetPorts
+    };
+  });
+  const metricsByRunId = new Map(dataRunMetrics.map((metric) => [metric.runId, metric]));
+  const maxPortIndex = dataRunMetrics.reduce((max, metric) => Math.max(max, metric.portIndex || 0), 0);
+  const portsUsed = maxPortIndex || dataRuns.length;
+  const wallPixelsOverLimit = totalWallPixelsForData > dataCapacity.maxDevicePixels;
+  const dataPortsOverLimit = portsUsed > dataCapacity.ethernetPorts;
+  const runsOverBudget = dataRunMetrics.filter((metric) => metric.overPortBudget).length;
+  const receivingCardLabel = receivingCard === 'a10s' ? 'A10s / A10s Pro' : 'A8s';
+  const colorDepthLabel = colorDepth === '8bit' ? '8-bit' : '10-bit';
 
   // Calculate totals
   const calculateTotals = () => {
@@ -103,6 +133,12 @@ const DeploymentSheet = forwardRef(({
           </span>
           <span className="px-2 py-1 bg-gray-100 rounded">
             <strong>Strategy:</strong> {wall?.power_strategy?.replace(/_/g, ' ').toUpperCase() || 'EDISON 20A'}
+          </span>
+          <span className="px-2 py-1 bg-cyan-50 rounded">
+            <strong>Processor:</strong> {dataCapacity.processorName}
+          </span>
+          <span className="px-2 py-1 bg-cyan-50 rounded">
+            <strong>Data Mode:</strong> {colorDepthLabel} • {receivingCardLabel}
           </span>
           {wall?.rack_location && (
             <span className="px-2 py-1 bg-purple-50 rounded">
@@ -202,6 +238,35 @@ const DeploymentSheet = forwardRef(({
           <p className="mt-2 text-sm bg-blue-50 p-2 rounded">
             <strong>Socapex:</strong> {Math.ceil(powerPlan?.length / 6) || 0} tails × 6 circuits
           </p>
+        )}
+      </div>
+
+      {/* Data Processing Totals */}
+      <div className="border-2 border-black p-4 mb-6">
+        <h3 className="font-bold text-sm mb-3">DATA PROCESSING</h3>
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          <div className="border border-gray-300 p-2">
+            <p><strong>Processor:</strong> {dataCapacity.processorName}</p>
+            <p><strong>Ports:</strong> {portsUsed} / {dataCapacity.ethernetPorts}</p>
+          </div>
+          <div className="border border-gray-300 p-2">
+            <p><strong>Bit Depth:</strong> {colorDepthLabel}</p>
+            <p><strong>Receiving:</strong> {receivingCardLabel}</p>
+          </div>
+          <div className="border border-gray-300 p-2">
+            <p><strong>Per-Port Budget:</strong> {dataCapacity.perPortPixelBudget.toLocaleString()} px</p>
+            <p><strong>Device Max:</strong> {dataCapacity.maxDevicePixels.toLocaleString()} px</p>
+          </div>
+        </div>
+        <p className="mt-2 text-sm">
+          <strong>Wall Pixel Load:</strong> {totalWallPixelsForData.toLocaleString()} px
+        </p>
+        {(wallPixelsOverLimit || dataPortsOverLimit || runsOverBudget > 0) && (
+          <div className="mt-2 text-xs bg-red-50 border border-red-200 rounded p-2 space-y-1">
+            {wallPixelsOverLimit && <p>Warning: Wall pixels exceed processor maximum.</p>}
+            {dataPortsOverLimit && <p>Warning: Data runs require more ports than available.</p>}
+            {runsOverBudget > 0 && <p>Warning: {runsOverBudget} run(s) exceed per-port pixel budget.</p>}
+          </div>
         )}
       </div>
 
@@ -350,21 +415,36 @@ const DeploymentSheet = forwardRef(({
                 <th className="text-left py-1">Port</th>
                 {wall?.loom_bundles && <th className="text-left py-1">Loom</th>}
                 <th className="text-center py-1">Panels</th>
+                <th className="text-right py-1">Pixels</th>
                 <th className="text-center py-1">Jumpers</th>
                 <th className="text-left py-1">Drop</th>
+                <th className="text-left py-1">Status</th>
               </tr>
             </thead>
             <tbody>
-              {dataRuns.map((run, idx) => (
-                <tr key={run.id} className={idx % 2 ? 'bg-gray-50' : ''}>
-                  <td className="py-1">{run.label}</td>
-                  <td>{run.processor_port || '-'}</td>
-                  {wall?.loom_bundles && <td className="text-xs text-gray-600">{run.loom || '-'}</td>}
-                  <td className="text-center">{run.path?.length || 0}</td>
-                  <td className="text-center">{Math.max(0, (run.path?.length || 0) - 1)}</td>
-                  <td>{run.home_run_location || '-'}</td>
-                </tr>
-              ))}
+              {dataRuns.map((run, idx) => {
+                const metrics = metricsByRunId.get(run.id) || {
+                  pixelLoad: 0,
+                  overPortBudget: false,
+                  overPortCount: false
+                };
+                const overLimit = metrics.overPortBudget || metrics.overPortCount;
+
+                return (
+                  <tr key={run.id} className={idx % 2 ? 'bg-gray-50' : ''}>
+                    <td className="py-1">{run.label}</td>
+                    <td>{run.processor_port || '-'}</td>
+                    {wall?.loom_bundles && <td className="text-xs text-gray-600">{run.loom || '-'}</td>}
+                    <td className="text-center">{run.path?.length || 0}</td>
+                    <td className="text-right">{metrics.pixelLoad.toLocaleString()}</td>
+                    <td className="text-center">{Math.max(0, (run.path?.length || 0) - 1)}</td>
+                    <td>{run.home_run_location || '-'}</td>
+                    <td className={overLimit ? 'text-red-600 font-semibold' : 'text-emerald-700'}>
+                      {overLimit ? 'Over limit' : 'OK'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
