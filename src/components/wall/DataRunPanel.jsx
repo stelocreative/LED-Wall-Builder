@@ -69,6 +69,46 @@ export default function DataRunPanel({
 
   const totalWallPixels = getWallPixelLoad(layout, cabinets);
   const wallExceedsProcessorLimit = totalWallPixels > dataCapacity.maxDevicePixels;
+  const portPixelBudget = dataCapacity.perPortPixelBudget;
+
+  const variantUsageMap = layout.reduce((accumulator, item) => {
+    const variant = cabinets.find((cabinet) => cabinet.id === item.cabinet_id);
+    if (!variant) {
+      return accumulator;
+    }
+
+    if (!accumulator[item.cabinet_id]) {
+      accumulator[item.cabinet_id] = {
+        cabinetId: item.cabinet_id,
+        variant,
+        count: 0
+      };
+    }
+
+    accumulator[item.cabinet_id].count += 1;
+    return accumulator;
+  }, {});
+
+  const panelsPerPortByVariant = Object.values(variantUsageMap)
+    .map((entry) => {
+      const panelPixels = Math.max(
+        0,
+        Number(entry.variant?.pixel_width || 0) * Number(entry.variant?.pixel_height || 0)
+      );
+      const panelsPerPort = panelPixels > 0 ? Math.floor(portPixelBudget / panelPixels) : 0;
+      const portsNeededForVariant = panelsPerPort > 0 ? Math.ceil(entry.count / panelsPerPort) : entry.count;
+
+      return {
+        ...entry,
+        panelPixels,
+        panelsPerPort,
+        portsNeededForVariant
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+
+  const portsNeededByPixelBudget = totalWallPixels > 0 ? Math.ceil(totalWallPixels / portPixelBudget) : 0;
+  const blendedPanelsPerPort = portsNeededByPixelBudget > 0 ? (layout.length / portsNeededByPixelBudget) : 0;
 
   const runMetrics = dataRuns.map((run) => {
     const pixelLoad = run.pixel_load ?? getRunPixelLoad(run, layout, cabinets);
@@ -428,6 +468,36 @@ export default function DataRunPanel({
           </div>
           <div className="rounded-md border border-slate-700 bg-slate-900/30 px-3 py-2 text-xs text-slate-300">
             Per-port budget @60Hz: {dataCapacity.perPortPixelBudget.toLocaleString()} px. Processor max: {dataCapacity.maxDevicePixels.toLocaleString()} px across {dataCapacity.ethernetPorts} ports.
+          </div>
+          <div className="rounded-md border border-slate-700 bg-slate-900/30 px-3 py-2 text-xs text-slate-300">
+            <p className="font-semibold text-slate-200 mb-1">Estimated Panels Per Port</p>
+            {panelsPerPortByVariant.length === 0 ? (
+              <p className="text-slate-400">Place cabinets on the wall to calculate per-port panel counts.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {panelsPerPortByVariant.slice(0, 4).map((entry) => (
+                  <div key={entry.cabinetId} className="rounded border border-slate-700/70 bg-slate-800/40 px-2 py-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-200 truncate">{entry.variant.variant_name}</span>
+                      <span className={`font-semibold whitespace-nowrap ${entry.panelsPerPort > 0 ? 'text-cyan-300' : 'text-red-300'}`}>
+                        {entry.panelsPerPort > 0 ? `${entry.panelsPerPort} / port` : 'Over budget'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      {entry.count} in wall • {entry.panelPixels.toLocaleString()} px each • ~{entry.portsNeededForVariant} port{entry.portsNeededForVariant === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                ))}
+                {panelsPerPortByVariant.length > 4 && (
+                  <p className="text-[11px] text-slate-400">
+                    +{panelsPerPortByVariant.length - 4} more variant{panelsPerPortByVariant.length - 4 === 1 ? '' : 's'}
+                  </p>
+                )}
+                <div className="pt-1 text-[11px] text-slate-300">
+                  Current wall mix: ~{blendedPanelsPerPort.toFixed(1)} panels/port ({portsNeededByPixelBudget} port{portsNeededByPixelBudget === 1 ? '' : 's'} by pixel budget).
+                </div>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
