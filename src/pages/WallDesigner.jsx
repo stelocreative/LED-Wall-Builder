@@ -36,6 +36,7 @@ import LabelGenerator from '../components/wall/LabelGenerator';
 import CablePullList from '../components/wall/CablePullList';
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 import { toast } from "@/components/ui/use-toast";
+import { getLayoutItemPixelLoad } from '@/lib/processor-catalog';
 
 const BASE_GRID_MM = 500;
 const GRID_UNIT_M = BASE_GRID_MM / 1000;
@@ -85,6 +86,8 @@ export default function WallDesigner() {
   const [showMeasurements, setShowMeasurements] = useState(true);
   const [activePanel, setActivePanel] = useState('cabinets');
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [activeDataRunId, setActiveDataRunId] = useState(null);
+  const [activePowerCircuitId, setActivePowerCircuitId] = useState(null);
 
   const { data: wall, isLoading: wallLoading, isError: wallError } = useQuery({
     queryKey: ['wall', wallId],
@@ -126,6 +129,8 @@ export default function WallDesigner() {
       setLayout(parseArrayField(wall.layout_data));
       setDataRuns(parseArrayField(wall.data_runs));
       setPowerPlan(parseArrayField(wall.power_plan));
+      setActiveDataRunId(null);
+      setActivePowerCircuitId(null);
     }
   }, [wall]);
 
@@ -144,6 +149,102 @@ export default function WallDesigner() {
 
   const handleLayoutChange = (newLayout) => {
     setLayout(newLayout);
+  };
+
+  const activateDataRun = (runId) => {
+    setActiveDataRunId(runId);
+    if (runId) {
+      setActivePowerCircuitId(null);
+    }
+  };
+
+  const activatePowerCircuit = (circuitId) => {
+    setActivePowerCircuitId(circuitId);
+    if (circuitId) {
+      setActiveDataRunId(null);
+    }
+  };
+
+  const handleDataRunsChange = (nextRuns) => {
+    setDataRuns(nextRuns);
+    if (activeDataRunId && !nextRuns.some((run) => run.id === activeDataRunId)) {
+      setActiveDataRunId(null);
+    }
+  };
+
+  const handlePowerPlanChange = (nextPlan) => {
+    setPowerPlan(nextPlan);
+    if (activePowerCircuitId && !nextPlan.some((circuit) => circuit.id === activePowerCircuitId)) {
+      setActivePowerCircuitId(null);
+    }
+  };
+
+  const computeRunPixelLoad = (pathIds) => {
+    return pathIds.reduce((sum, layoutId) => {
+      const item = layout.find((layoutItem) => layoutItem.id === layoutId);
+      if (!item) {
+        return sum;
+      }
+      return sum + getLayoutItemPixelLoad(item, cabinets);
+    }, 0);
+  };
+
+  const handleDataRunCabinetClick = (runId, layoutId) => {
+    setDataRuns((previousRuns) =>
+      previousRuns.map((run) => {
+        if (run.id !== runId) {
+          return run;
+        }
+
+        const currentPath = Array.isArray(run.path) ? run.path : [];
+        let nextPath = currentPath;
+        const existingIndex = currentPath.indexOf(layoutId);
+
+        if (existingIndex === -1) {
+          nextPath = [...currentPath, layoutId];
+        } else {
+          nextPath = currentPath.slice(0, existingIndex + 1);
+        }
+
+        return {
+          ...run,
+          path: nextPath,
+          pixel_load: computeRunPixelLoad(nextPath)
+        };
+      })
+    );
+  };
+
+  const handlePowerCircuitCabinetClick = (circuitId, layoutId) => {
+    setPowerPlan((previousPlan) => {
+      const sanitized = previousPlan.map((circuit) => {
+        const ids = Array.isArray(circuit.cabinet_ids) ? circuit.cabinet_ids : [];
+        if (circuit.id === circuitId) {
+          return {
+            ...circuit,
+            cabinet_ids: ids
+          };
+        }
+        return {
+          ...circuit,
+          cabinet_ids: ids.filter((id) => id !== layoutId)
+        };
+      });
+
+      return sanitized.map((circuit) => {
+        if (circuit.id !== circuitId) {
+          return circuit;
+        }
+
+        const hasCabinet = circuit.cabinet_ids.includes(layoutId);
+        return {
+          ...circuit,
+          cabinet_ids: hasCabinet
+            ? circuit.cabinet_ids.filter((id) => id !== layoutId)
+            : [...circuit.cabinet_ids, layoutId]
+        };
+      });
+    });
   };
 
   const handlePrint = () => {
@@ -394,11 +495,13 @@ export default function WallDesigner() {
                     layout={layout}
                     cabinets={cabinets}
                     dataRuns={dataRuns}
-                    onDataRunsChange={setDataRuns}
+                    onDataRunsChange={handleDataRunsChange}
                     gridCols={gridCols}
                     gridRows={gridRows}
                     wall={wall}
                     onWallUpdate={handleWallUpdate}
+                    activeRunId={activeDataRunId}
+                    onActiveRunChange={activateDataRun}
                   />
                 </TabsContent>
 
@@ -408,8 +511,10 @@ export default function WallDesigner() {
                     layout={layout}
                     cabinets={cabinets}
                     powerPlan={powerPlan}
-                    onPowerPlanChange={setPowerPlan}
+                    onPowerPlanChange={handlePowerPlanChange}
                     onStrategyChange={handleStrategyChange}
+                    activeCircuitId={activePowerCircuitId}
+                    onActiveCircuitChange={activatePowerCircuit}
                   />
                 </TabsContent>
 
@@ -521,6 +626,10 @@ export default function WallDesigner() {
               showLabels={showLabels}
               showMeasurements={showMeasurements}
               tool={tool}
+              activeDataRunId={activeDataRunId}
+              activePowerCircuitId={activePowerCircuitId}
+              onDataRunCabinetClick={handleDataRunCabinetClick}
+              onPowerCircuitCabinetClick={handlePowerCircuitCabinetClick}
             />
           </div>
 

@@ -29,7 +29,9 @@ export default function PowerPlanPanel({
   cabinets,
   powerPlan = [],
   onPowerPlanChange,
-  onStrategyChange
+  onStrategyChange,
+  activeCircuitId = null,
+  onActiveCircuitChange
 }) {
   const voltage = wall?.voltage_mode === '120v' ? 120 : 208;
   const strategy = POWER_STRATEGIES[wall?.power_strategy || 'edison_20a'];
@@ -78,10 +80,14 @@ export default function PowerPlanPanel({
       notes: ''
     };
     onPowerPlanChange([...powerPlan, newCircuit]);
+    onActiveCircuitChange?.(newCircuit.id);
   };
 
   const removeCircuit = (id) => {
     onPowerPlanChange(powerPlan.filter(c => c.id !== id));
+    if (activeCircuitId === id) {
+      onActiveCircuitChange?.(null);
+    }
   };
 
   const getPowerOrderedLayout = (entrySide) => {
@@ -268,6 +274,12 @@ export default function PowerPlanPanel({
           </Button>
         </div>
 
+        <div className={`rounded-md border px-3 py-2 text-xs ${activeCircuitId ? 'border-orange-500/70 bg-orange-900/20 text-orange-100' : 'border-slate-700 bg-slate-900/30 text-slate-300'}`}>
+          {activeCircuitId
+            ? 'Circuit assignment active: click cabinets on the canvas to add/remove them from this circuit.'
+            : 'Tip: click Add Circuit, then click cabinets on the canvas to assign power manually.'}
+        </div>
+
         <Separator className="bg-slate-700" />
 
         {/* Circuit List */}
@@ -275,12 +287,20 @@ export default function PowerPlanPanel({
           {powerPlan.map((circuit, idx) => {
             const load = calculateCircuitLoad(circuit);
             const status = getLoadStatus(load.amps.typical);
+            const isActive = activeCircuitId === circuit.id;
             
             return (
-              <div key={circuit.id} className="p-3 bg-slate-700/30 rounded-lg">
+              <div
+                key={circuit.id}
+                className={`p-3 rounded-lg cursor-pointer transition-colors ${isActive ? 'ring-1 ring-orange-400 bg-orange-900/20' : 'bg-slate-700/30 hover:bg-slate-700/50'}`}
+                onClick={() => onActiveCircuitChange?.(isActive ? null : circuit.id)}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-white">{circuit.label}</span>
+                    {isActive && (
+                      <Badge className="bg-orange-600 text-[10px]">Assigning</Badge>
+                    )}
                     <Badge variant="outline" className="text-xs">
                       {circuit.cabinet_ids?.length || 0} panels
                     </Badge>
@@ -296,7 +316,10 @@ export default function PowerPlanPanel({
                       size="icon" 
                       variant="ghost" 
                       className="h-6 w-6"
-                      onClick={() => removeCircuit(circuit.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeCircuit(circuit.id);
+                      }}
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>

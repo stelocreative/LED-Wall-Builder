@@ -52,7 +52,9 @@ export default function DataRunPanel({
   dataRuns = [],
   onDataRunsChange,
   wall,
-  onWallUpdate
+  onWallUpdate,
+  activeRunId = null,
+  onActiveRunChange
 }) {
   const processorModel = wall?.processor_model || 'mx30';
   const receivingCard = wall?.receiving_card || 'a8s';
@@ -330,10 +332,14 @@ export default function DataRunPanel({
       pixel_budget: dataCapacity.perPortPixelBudget
     };
     onDataRunsChange([...dataRuns, newRun]);
+    onActiveRunChange?.(newRun.id);
   };
 
   const removeRun = (id) => {
     onDataRunsChange(dataRuns.filter((run) => run.id !== id));
+    if (activeRunId === id) {
+      onActiveRunChange?.(null);
+    }
   };
 
   const totalJumpers = dataRuns.reduce((acc, run) => {
@@ -487,6 +493,12 @@ export default function DataRunPanel({
           </div>
         </div>
 
+        <div className={`rounded-md border px-3 py-2 text-xs ${activeRunId ? 'border-blue-500/60 bg-blue-900/20 text-blue-100' : 'border-slate-700 bg-slate-900/30 text-slate-300'}`}>
+          {activeRunId
+            ? 'Routing mode active: click cabinets on the canvas to build this run path.'
+            : 'Tip: click Add Run, then click cabinets on the canvas to route manually.'}
+        </div>
+
         <Separator className="bg-slate-700" />
 
         <div className="space-y-2">
@@ -498,20 +510,32 @@ export default function DataRunPanel({
             };
             const overLimit = metrics.overPortBudget || metrics.overPortCount;
 
+            const isActive = activeRunId === run.id;
+
             return (
-              <div key={run.id} className={`p-3 rounded-lg ${overLimit ? 'bg-red-900/20 border border-red-700/40' : 'bg-slate-700/30'}`}>
+              <div
+                key={run.id}
+                className={`p-3 rounded-lg cursor-pointer transition-colors ${isActive ? 'ring-1 ring-blue-400 bg-blue-900/20' : overLimit ? 'bg-red-900/20 border border-red-700/40' : 'bg-slate-700/30 hover:bg-slate-700/50'}`}
+                onClick={() => onActiveRunChange?.(isActive ? null : run.id)}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
                       {index + 1}
                     </div>
                     <span className="text-sm font-medium text-white">{run.label}</span>
+                    {isActive && (
+                      <Badge className="bg-blue-600 text-[10px]">Routing</Badge>
+                    )}
                   </div>
                   <Button
                     size="icon"
                     variant="ghost"
                     className="h-6 w-6"
-                    onClick={() => removeRun(run.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeRun(run.id);
+                    }}
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>

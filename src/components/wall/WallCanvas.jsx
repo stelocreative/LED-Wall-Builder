@@ -54,7 +54,11 @@ export default function WallCanvas({
   showPowerPaths = true,
   showLabels = true,
   showMeasurements = true,
-  tool = 'select'
+  tool = 'select',
+  activeDataRunId = null,
+  activePowerCircuitId = null,
+  onDataRunCabinetClick,
+  onPowerCircuitCabinetClick
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -66,6 +70,10 @@ export default function WallCanvas({
   const baseCellSize = 60; // Display size for one base grid unit (500mm)
   const powerCircuitByCabinetId = new Map();
   const powerCircuitLegend = [];
+  const activeDataRun = dataRuns.find((run) => run.id === activeDataRunId);
+  const activeDataCabinetIds = new Set(activeDataRun?.path || []);
+  const activePowerCircuit = powerPlan.find((circuit) => circuit.id === activePowerCircuitId);
+  const activePowerCabinetIds = new Set(activePowerCircuit?.cabinet_ids || []);
 
   if (showPowerPaths && Array.isArray(powerPlan)) {
     powerPlan.forEach((circuit, index) => {
@@ -124,8 +132,19 @@ export default function WallCanvas({
   };
 
   const handleCellClick = (col, row) => {
+    const existing = getCabinetForCell(col, row);
+
+    if (activeDataRunId && existing) {
+      onDataRunCabinetClick?.(activeDataRunId, existing.id);
+      return;
+    }
+
+    if (activePowerCircuitId && existing) {
+      onPowerCircuitCabinetClick?.(activePowerCircuitId, existing.id);
+      return;
+    }
+
     if (tool === 'select') {
-      const existing = getCabinetForCell(col, row);
       if (existing) {
         setSelectedCells([existing.id]);
       } else {
@@ -196,12 +215,14 @@ export default function WallCanvas({
       const isSelected = selectedCells.includes(layoutItem.id);
       const powerCircuit = showPowerPaths ? powerCircuitByCabinetId.get(layoutItem.id) : null;
       const shouldColorByCircuit = Boolean(powerCircuit) && status !== 'void' && status !== 'cutout';
+      const isDataTarget = activeDataCabinetIds.has(layoutItem.id);
+      const isPowerTarget = activePowerCabinetIds.has(layoutItem.id);
 
       return (
         <div
           key={`cabinet-${layoutItem.id}`}
           onClick={() => handleCellClick(col, row)}
-          className={`absolute border-2 rounded-sm cursor-pointer transition-all flex flex-col items-center justify-center text-xs ${CELL_COLORS[status]} ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''}`}
+          className={`absolute border-2 rounded-sm cursor-pointer transition-all flex flex-col items-center justify-center text-xs ${CELL_COLORS[status]} ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''} ${isDataTarget ? 'ring-2 ring-yellow-300/90 ring-offset-1 ring-offset-slate-900' : ''} ${isPowerTarget ? 'ring-2 ring-orange-300/90 ring-offset-1 ring-offset-slate-900' : ''}`}
           style={{
             left: col * baseCellSize * zoom + pan.x,
             top: row * baseCellSize * zoom + pan.y,
@@ -452,6 +473,12 @@ export default function WallCanvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
+        {(activeDataRunId || activePowerCircuitId) && (
+          <div className="absolute left-3 top-3 z-10 rounded-md border border-slate-500 bg-slate-900/90 px-3 py-2 text-xs text-slate-100">
+            {activeDataRunId && <p>Routing Data: click cabinets in order to build the run.</p>}
+            {activePowerCircuitId && <p>Assigning Power: click cabinets to toggle this circuit.</p>}
+          </div>
+        )}
         {renderPowerCircuitLegend()}
         {renderMeasurements()}
         {cells}
