@@ -13,6 +13,8 @@ const DATA_PATH_COLOR = '#facc15';
 const DATA_PATH_OUTLINE = '#0f172a';
 const DATA_PATH_STROKE = 3.5;
 const DATA_PATH_OUTLINE_STROKE = 6.5;
+const DATA_ARROW_BASE_WIDTH = 14;
+const DATA_ARROW_BASE_HEIGHT = 10;
 
 export default function WallCanvas({ 
   gridCols, 
@@ -225,6 +227,16 @@ export default function WallCanvas({
   const renderDataPaths = () => {
     if (!showDataPaths || !dataRuns.length) return null;
 
+    const zoomStrokeFactor = Math.max(0.45, Math.min(1.4, zoom));
+    const lineStroke = DATA_PATH_STROKE * zoomStrokeFactor;
+    const outlineStroke = DATA_PATH_OUTLINE_STROKE * zoomStrokeFactor;
+    const markerScale = Math.max(0.55, Math.min(1.2, zoom));
+    const markerWidth = DATA_ARROW_BASE_WIDTH * markerScale;
+    const markerHeight = DATA_ARROW_BASE_HEIGHT * markerScale;
+    const markerRefX = markerWidth * 0.86;
+    const markerRefY = markerHeight / 2;
+    const markerPoints = `0 0, ${markerWidth} ${markerRefY}, 0 ${markerHeight}`;
+
     const segments = [];
 
     dataRuns.forEach((run, runIndex) => {
@@ -262,7 +274,7 @@ export default function WallCanvas({
               points={points}
               fill="none"
               stroke={DATA_PATH_OUTLINE}
-              strokeWidth={DATA_PATH_OUTLINE_STROKE}
+              strokeWidth={outlineStroke}
               strokeLinecap="round"
               strokeLinejoin="round"
               opacity="0.95"
@@ -271,7 +283,7 @@ export default function WallCanvas({
               points={points}
               fill="none"
               stroke={DATA_PATH_COLOR}
-              strokeWidth={DATA_PATH_STROKE}
+              strokeWidth={lineStroke}
               strokeLinecap="round"
               strokeLinejoin="round"
               markerEnd="url(#arrowhead-data)"
@@ -286,8 +298,16 @@ export default function WallCanvas({
     return (
       <svg className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
         <defs>
-          <marker id="arrowhead-data" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
-            <polygon points="0 0, 14 5, 0 10" fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth="0.9" />
+          <marker
+            id="arrowhead-data"
+            markerWidth={markerWidth}
+            markerHeight={markerHeight}
+            refX={markerRefX}
+            refY={markerRefY}
+            orient="auto"
+            markerUnits="userSpaceOnUse"
+          >
+            <polygon points={markerPoints} fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth={Math.max(0.6, lineStroke * 0.35)} />
           </marker>
         </defs>
         {segments}
