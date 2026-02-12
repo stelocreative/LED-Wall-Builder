@@ -1,52 +1,38 @@
-**Welcome to your Base44 project** 
+# LED Wall Designer
 
-**About**
+Standalone web app for LED wall deployment design, power/data planning, and crew printouts.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Runtime mode
 
-This project contains everything you need to run your app locally.
+- This build runs independently and does **not** require Base44 runtime services.
+- Data is persisted in browser `localStorage` for now.
 
-**Edit the code in your local development environment**
+## Local development
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
-
-**Prerequisites:** 
-
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the environment variables
-
+1. Install dependencies:
+```bash
+npm install
 ```
-VITE_BASE44_APP_ID=your_24_char_base44_app_id
-VITE_BASE44_APP_BASE_URL=https://your-app-slug.base44.app
+2. Run dev server:
+```bash
+npm run dev
+```
+3. Build for production:
+```bash
+npm run build
 ```
 
-How to find `VITE_BASE44_APP_ID`:
-- Open your app in Base44 Builder
-- Copy the 24-character app ID from the Builder URL (`/apps/<APP_ID>/...`)
+## Environment variables
 
-How to find `VITE_BASE44_APP_BASE_URL`:
-- In Base44, open Publish/Share settings for your app
-- Copy the published `https://...base44.app` URL
+Current app runtime does not require backend env vars.
 
-Run the app: `npm run dev`
+Optional future backend wiring:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-## Quick Start: Popular Touring Cabinets Included
+## Included starter catalog
 
-The app now includes a built-in popular touring catalog by default:
+Built-in popular touring catalog merge logic includes:
 - Chauvet Professional F4X IP (`500x500`, `500x1000`)
 - Absen PL3.9 Pro V2 (`500x500`, `500x1000`)
-- ROE Visual Black Pearl V2, Ruby, Diamond (common `500x500` touring variants)
-
-You can still click `Seed Popular Catalog` in `Cabinet Library`; it now confirms the built-in catalog and avoids Base44 write calls.
-
-**Publish your changes**
-
-Open [Base44.com](http://Base44.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+- ROE Visual Black Pearl / Ruby / Diamond common touring variants

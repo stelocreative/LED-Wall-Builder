@@ -8,7 +8,6 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
-import { Button } from "@/components/ui/button";
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -38,21 +37,6 @@ const AuthenticatedApp = () => {
       // Redirect to login automatically
       navigateToLogin();
       return null;
-    } else if (authError.type === 'configuration_error') {
-      return (
-        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6">
-          <div className="max-w-xl w-full rounded-xl border border-slate-700 bg-slate-800 p-6 text-center">
-            <h1 className="text-2xl font-semibold">App Configuration Required</h1>
-            <p className="mt-2 text-slate-300">{authError.message}</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Add `VITE_BASE44_APP_ID` and `VITE_BASE44_APP_BASE_URL` in Vercel, redeploy, then reload.
-            </p>
-            <Button className="mt-5 bg-blue-600 hover:bg-blue-700" onClick={() => window.location.reload()}>
-              Reload
-            </Button>
-          </div>
-        </div>
-      );
     }
   }
 
