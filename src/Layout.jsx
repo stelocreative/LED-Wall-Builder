@@ -35,7 +35,7 @@ export default function Layout({ children, currentPageName }) {
   const runtimeLogoUrl = React.useMemo(() => resolveBrandLogoUrl(appPublicSettings), [appPublicSettings]);
   const logoCandidates = React.useMemo(() => {
     const unique = [];
-    for (const candidate of [runtimeLogoUrl, '/starsound-logo.png', '/starsound-logo.svg']) {
+    for (const candidate of [runtimeLogoUrl, '/starsound-logo.svg']) {
       if (candidate && !unique.includes(candidate)) {
         unique.push(candidate);
       }

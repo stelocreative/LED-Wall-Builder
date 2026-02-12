@@ -56,7 +56,18 @@ function parseMutationError(error) {
     error?.data?.error ||
     error?.response?.data?.message ||
     error?.message;
-  return details || 'Request failed. Please try again.';
+  if (typeof details === 'string') return details;
+  if (typeof details === 'number') return String(details);
+  if (details && typeof details === 'object') {
+    if (typeof details.message === 'string') return details.message;
+    if (typeof details.code === 'string') return details.code;
+    try {
+      return JSON.stringify(details);
+    } catch {
+      return 'Request failed. Please try again.';
+    }
+  }
+  return 'Request failed. Please try again.';
 }
 
 function parseDateSafe(value) {
