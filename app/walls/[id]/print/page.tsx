@@ -119,7 +119,7 @@ export default async function PrintPage({ params }: Props) {
                   <tr key={`${block.portIndex}-${block.rowStart}`}>
                     <td>P{block.portIndex + 1}</td>
                     <td>
-                      {block.rowStart + 1} -> {block.rowEnd + 1}
+                      {block.rowStart + 1} {"->"} {block.rowEnd + 1}
                     </td>
                     <td>{block.cableOrigin === "ground" ? "Ground -> Wall" : "Air -> Wall"}</td>
                     <td>{block.pixelLoad.toLocaleString()}</td>

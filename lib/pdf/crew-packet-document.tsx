@@ -151,7 +151,7 @@ export function CrewPacketDocument({ wall, panelMap, dataPlan, powerPlan, theme,
             <View key={`${block.portIndex}-${block.rowStart}`} style={styles.diagramCell}>
               <Text style={styles.cell}>P{block.portIndex + 1}</Text>
               <Text style={styles.cell}>
-                {block.rowStart + 1} -> {block.rowEnd + 1}
+                {block.rowStart + 1} {"->"} {block.rowEnd + 1}
               </Text>
               <Text style={styles.cell}>{block.pixelLoad.toLocaleString()} px</Text>
               <Text style={styles.cell}>
