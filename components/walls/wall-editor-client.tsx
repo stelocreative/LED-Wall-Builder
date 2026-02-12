@@ -1,8 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { WallCanvas } from "@/components/canvas/wall-canvas";
 import { defaultProcessors } from "@/lib/domain/catalog";
 import { metersToFeet, roundTo } from "@/lib/domain/conversions";
 import { autoPopulateWall, validateNoOverlap } from "@/lib/domain/wall-layout";
@@ -10,6 +10,11 @@ import { PanelVariant, ProcessorModel, ReceivingCardModel, Wall } from "@/lib/do
 import { buildDataPlan } from "@/lib/planning/data-plan";
 import { buildMirroredDataPlan, buildMirroredPowerPlan } from "@/lib/planning/mirroring";
 import { buildPowerPlan } from "@/lib/planning/power-plan";
+
+const WallCanvas = dynamic(
+  () => import("@/components/canvas/wall-canvas").then((mod) => mod.WallCanvas),
+  { ssr: false }
+);
 
 interface ReferencePayload {
   panels: PanelVariant[];
