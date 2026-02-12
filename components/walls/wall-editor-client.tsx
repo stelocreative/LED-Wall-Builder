@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WallCanvas } from "@/components/canvas/wall-canvas";
-import { computeWallTotals, placeVariantOnGrid, removeCellAtCoordinate } from "@/lib/domain/wall-layout";
+import {
+  computeWallTotals,
+  hasOverlap,
+  placeVariantOnGrid,
+  removeCellAtCoordinate,
+  variantUnitsForBase,
+  variantFitsInWall
+} from "@/lib/domain/wall-layout";
 import {
   CabinetVariant,
   CircuitGroupingMode,
@@ -30,6 +37,11 @@ interface Props {
 
 type ToolMode = "PLACE" | "ERASE" | "MARK_SPARE" | "MARK_VOID" | "MARK_CUTOUT";
 
+interface RouteOffset {
+  x: number;
+  y: number;
+}
+
 function labelForStrategy(strategy: Wall["powerStrategy"]): string {
   switch (strategy) {
     case "EDISON_20A":
@@ -45,12 +57,48 @@ function labelForStrategy(strategy: Wall["powerStrategy"]): string {
   }
 }
 
+function routeStorageKey(wallId: string, layer: "data" | "power"): string {
+  return `led-wall-route-offsets:${wallId}:${layer}`;
+}
+
+function normalizeCellGeometry(
+  sourceCells: WallCell[],
+  wall: Wall,
+  variantsById: Record<string, CabinetVariant>
+): WallCell[] {
+  return sourceCells.map((cell) => {
+    if (!cell.variantId) {
+      return cell;
+    }
+
+    const variant = variantsById[cell.variantId];
+    if (!variant) {
+      return cell;
+    }
+
+    const footprint = variantUnitsForBase(variant, wall.baseUnitWidthMm, wall.baseUnitHeightMm);
+    if (cell.unitWidth === footprint.unitWidth && cell.unitHeight === footprint.unitHeight) {
+      return cell;
+    }
+
+    return {
+      ...cell,
+      unitWidth: footprint.unitWidth,
+      unitHeight: footprint.unitHeight
+    };
+  });
+}
+
 export function WallEditorClient({ wallBundle, families, variants, processors, shows, receivingCards }: Props) {
+  const initialVariantsById = Object.fromEntries(variants.map((variant) => [variant.id, variant]));
   const [wall, setWall] = useState<Wall>(wallBundle.wall);
-  const [cells, setCells] = useState<WallCell[]>(wallBundle.cells);
+  const [cells, setCells] = useState<WallCell[]>(() =>
+    normalizeCellGeometry(wallBundle.cells, wallBundle.wall, initialVariantsById)
+  );
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>(variants[0]?.id ?? "");
   const [toolMode, setToolMode] = useState<ToolMode>("PLACE");
+  const [activeFamilyId, setActiveFamilyId] = useState<string>("ALL");
 
   const [processorId, setProcessorId] = useState<string>(processors[0]?.id ?? "");
   const [receivingCard, setReceivingCard] = useState<ReceivingCardModel>(receivingCards[0] ?? "A10s");
@@ -64,6 +112,9 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
   const [showDataLayer, setShowDataLayer] = useState(true);
   const [showPowerLayer, setShowPowerLayer] = useState(true);
 
+  const [dataRouteOffsets, setDataRouteOffsets] = useState<Record<number, RouteOffset>>({});
+  const [powerRouteOffsets, setPowerRouteOffsets] = useState<Record<number, RouteOffset>>({});
+
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [status, setStatus] = useState<string | null>(null);
 
@@ -71,6 +122,36 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
   const variantsById = useMemo(() => Object.fromEntries(variants.map((variant) => [variant.id, variant])), [variants]);
 
   const processor = processors.find((item) => item.id === processorId) ?? processors[0];
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const dataRaw = window.localStorage.getItem(routeStorageKey(wall.id, "data"));
+      const powerRaw = window.localStorage.getItem(routeStorageKey(wall.id, "power"));
+      setDataRouteOffsets(dataRaw ? (JSON.parse(dataRaw) as Record<number, RouteOffset>) : {});
+      setPowerRouteOffsets(powerRaw ? (JSON.parse(powerRaw) as Record<number, RouteOffset>) : {});
+    } catch {
+      setDataRouteOffsets({});
+      setPowerRouteOffsets({});
+    }
+  }, [wall.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(routeStorageKey(wall.id, "data"), JSON.stringify(dataRouteOffsets));
+  }, [dataRouteOffsets, wall.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(routeStorageKey(wall.id, "power"), JSON.stringify(powerRouteOffsets));
+  }, [powerRouteOffsets, wall.id]);
 
   const totals = useMemo(
     () =>
@@ -118,6 +199,49 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
 
   const selectedShow = shows.find((show) => show.id === wall.showId);
 
+  const filteredVariants = useMemo(() => {
+    const source =
+      activeFamilyId === "ALL" ? variants : variants.filter((variant) => variant.familyId === activeFamilyId);
+
+    return [...source].sort((a, b) => {
+      const familyCompare = (familiesById[a.familyId]?.familyName ?? "").localeCompare(
+        familiesById[b.familyId]?.familyName ?? ""
+      );
+      if (familyCompare !== 0) {
+        return familyCompare;
+      }
+      return a.variantName.localeCompare(b.variantName);
+    });
+  }, [activeFamilyId, familiesById, variants]);
+
+  function placeVariantAtCoordinate(
+    variant: CabinetVariant,
+    unitX: number,
+    unitY: number,
+    statusForPlacement: WallCell["status"]
+  ) {
+    setCells((current) => {
+      const cleaned = removeCellAtCoordinate(current, unitX, unitY);
+      const placeResult = placeVariantOnGrid({
+        wall,
+        cells: cleaned,
+        wallId: wall.id,
+        variant,
+        unitX,
+        unitY,
+        status: statusForPlacement
+      });
+
+      if (!placeResult.ok) {
+        setStatus(placeResult.reason);
+        return current;
+      }
+
+      setStatus(null);
+      return placeResult.cells;
+    });
+  }
+
   function applyToolAt(unitX: number, unitY: number) {
     if (toolMode === "ERASE") {
       setCells((current) => removeCellAtCoordinate(current, unitX, unitY));
@@ -150,23 +274,48 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
       return;
     }
 
-    const cleaned = removeCellAtCoordinate(cells, unitX, unitY);
-    const placeResult = placeVariantOnGrid({
-      wall,
-      cells: cleaned,
-      wallId: wall.id,
-      variant,
-      unitX,
-      unitY,
-      status: toolMode === "MARK_SPARE" ? "spare" : "active"
-    });
+    placeVariantAtCoordinate(variant, unitX, unitY, toolMode === "MARK_SPARE" ? "spare" : "active");
+  }
 
-    if (!placeResult.ok) {
-      setStatus(placeResult.reason);
+  function moveCell(cellId: string, nextUnitX: number, nextUnitY: number) {
+    setCells((current) => {
+      const target = current.find((cell) => cell.id === cellId);
+      if (!target) {
+        return current;
+      }
+
+      const size = { unitWidth: target.unitWidth, unitHeight: target.unitHeight };
+      if (!variantFitsInWall(wall, size, nextUnitX, nextUnitY)) {
+        setStatus("Moved cabinet is out of wall bounds.");
+        return current;
+      }
+
+      const remaining = current.filter((cell) => cell.id !== cellId);
+      const candidate = {
+        ...target,
+        unitX: nextUnitX,
+        unitY: nextUnitY
+      };
+
+      if (hasOverlap(remaining, candidate)) {
+        setStatus("Moved cabinet overlaps existing placement.");
+        return current;
+      }
+
+      setStatus(null);
+      return [...remaining, candidate];
+    });
+  }
+
+  function placeDroppedVariant(variantId: string, unitX: number, unitY: number) {
+    const variant = variantsById[variantId];
+    if (!variant) {
+      setStatus("Dropped variant was not found in library.");
       return;
     }
 
-    setCells(placeResult.cells);
+    setSelectedVariantId(variantId);
+    placeVariantAtCoordinate(variant, unitX, unitY, toolMode === "MARK_SPARE" ? "spare" : "active");
   }
 
   function deleteSelectedCell() {
@@ -360,6 +509,50 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
             </button>
 
             <p>Tool Mode: {toolMode}</p>
+            <p>Drag placed cabinets to reposition. Drag variants below directly onto the wall grid.</p>
+
+            <label>
+              Library Family
+              <select value={activeFamilyId} onChange={(event) => setActiveFamilyId(event.target.value)}>
+                <option value="ALL">All families</option>
+                {families.map((family) => (
+                  <option key={family.id} value={family.id}>
+                    {family.manufacturer} {family.familyName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="variant-palette" role="list" aria-label="Cabinet variants">
+              {filteredVariants.map((variant) => {
+                const family = familiesById[variant.familyId];
+                const selected = selectedVariantId === variant.id;
+                const footprint = variantUnitsForBase(variant, wall.baseUnitWidthMm, wall.baseUnitHeightMm);
+                return (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    className={`variant-card${selected ? " is-selected" : ""}`}
+                    draggable
+                    onClick={() => setSelectedVariantId(variant.id)}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData("application/x-led-variant-id", variant.id);
+                      event.dataTransfer.setData("text/plain", variant.id);
+                    }}
+                  >
+                    <strong>{family ? `${family.manufacturer} ${family.familyName}` : variant.familyId}</strong>
+                    <span>{variant.variantName}</span>
+                    <span>
+                      {variant.dimensionsMm.widthMm}x{variant.dimensionsMm.heightMm}mm ({variant.dimensionsIn.widthIn.toFixed(1)}x
+                      {variant.dimensionsIn.heightIn.toFixed(1)}in)
+                    </span>
+                    <span>
+                      Grid: {footprint.unitWidth}x{footprint.unitHeight} units
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </section>
 
           <section className="panel">
@@ -402,6 +595,9 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
                 <input type="number" min={1} value={portGroupSize} onChange={(event) => setPortGroupSize(Number(event.target.value))} />
               </label>
             </div>
+            <button className="btn btn-secondary btn-small" type="button" onClick={() => setDataRouteOffsets({})}>
+              Auto Route Data (Reset Handles)
+            </button>
           </section>
 
           <section className="panel">
@@ -417,6 +613,9 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
             <p>
               Estimated circuits: {powerPlan.estimatedCircuitCount} | Soca tails: {powerPlan.socapexRunsRequired}
             </p>
+            <button className="btn btn-secondary btn-small" type="button" onClick={() => setPowerRouteOffsets({})}>
+              Auto Route Power (Reset Handles)
+            </button>
           </section>
 
           <section className="panel">
@@ -473,8 +672,24 @@ export function WallEditorClient({ wallBundle, families, variants, processors, s
             showMeasurements={showMeasurements}
             showDataLayer={showDataLayer}
             showPowerLayer={showPowerLayer}
+            dataRouteOffsets={dataRouteOffsets}
+            powerRouteOffsets={powerRouteOffsets}
             onSelectCell={setSelectedCellId}
             onGridClick={applyToolAt}
+            onMoveCell={moveCell}
+            onDropVariant={placeDroppedVariant}
+            onDataRouteOffsetChange={(runNumber, offset) =>
+              setDataRouteOffsets((current) => ({
+                ...current,
+                [runNumber]: offset
+              }))
+            }
+            onPowerRouteOffsetChange={(circuitNumber, offset) =>
+              setPowerRouteOffsets((current) => ({
+                ...current,
+                [circuitNumber]: offset
+              }))
+            }
           />
 
           <div className="table-grid">

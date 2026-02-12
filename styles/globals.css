@@ -241,6 +241,44 @@ select option {
   overflow-x: auto;
 }
 
+.variant-palette {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.variant-card {
+  display: grid;
+  gap: 0.18rem;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 0.55rem;
+  background: rgba(30, 41, 59, 0.72);
+  color: var(--text);
+  padding: 0.45rem 0.55rem;
+  cursor: grab;
+}
+
+.variant-card.is-selected {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 1px rgba(32, 164, 243, 0.4) inset;
+}
+
+.variant-card:active {
+  cursor: grabbing;
+}
+
+.variant-card strong {
+  font-size: 0.83rem;
+}
+
+.variant-card span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .table-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

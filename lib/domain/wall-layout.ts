@@ -96,6 +96,17 @@ export function variantFitsInWall(
   );
 }
 
+export function variantUnitsForBase(
+  variant: Pick<CabinetVariant, "dimensionsMm">,
+  baseUnitWidthMm: number,
+  baseUnitHeightMm: number
+): { unitWidth: number; unitHeight: number } {
+  return {
+    unitWidth: Math.max(1, Math.round(variant.dimensionsMm.widthMm / Math.max(1, baseUnitWidthMm))),
+    unitHeight: Math.max(1, Math.round(variant.dimensionsMm.heightMm / Math.max(1, baseUnitHeightMm)))
+  };
+}
+
 export function hasOverlap(cells: WallCell[], candidate: Pick<WallCell, "unitX" | "unitY" | "unitWidth" | "unitHeight">): boolean {
   return cells
     .filter((cell) => cell.status !== "void" && cell.status !== "cutout")
@@ -120,7 +131,9 @@ export function placeVariantOnGrid(params: {
   notes?: string;
 }): { ok: true; cells: WallCell[] } | { ok: false; reason: string } {
   const { wall, cells, variant, unitX, unitY } = params;
-  if (!variantFitsInWall(wall, variant, unitX, unitY)) {
+  const footprint = variantUnitsForBase(variant, wall.baseUnitWidthMm, wall.baseUnitHeightMm);
+
+  if (!variantFitsInWall(wall, footprint, unitX, unitY)) {
     return { ok: false, reason: "Cabinet is out of wall bounds." };
   }
 
@@ -131,8 +144,8 @@ export function placeVariantOnGrid(params: {
     label: nextCabinetLabel(cells),
     unitX,
     unitY,
-    unitWidth: variant.unitWidth,
-    unitHeight: variant.unitHeight,
+    unitWidth: footprint.unitWidth,
+    unitHeight: footprint.unitHeight,
     status: params.status ?? "active",
     notes: params.notes ?? ""
   };
@@ -156,12 +169,16 @@ export function autoFillWall(params: {
   wallId: string;
   widthUnits: number;
   heightUnits: number;
+  baseUnitWidthMm?: number;
+  baseUnitHeightMm?: number;
   primaryVariant: CabinetVariant;
   secondaryVariant?: CabinetVariant | null;
   secondaryEveryNColumns?: number;
 }): WallCell[] {
   const filled: WallCell[] = [];
   const occupied = Array.from({ length: params.heightUnits }, () => Array<boolean>(params.widthUnits).fill(false));
+  const baseUnitWidthMm = params.baseUnitWidthMm ?? 500;
+  const baseUnitHeightMm = params.baseUnitHeightMm ?? 500;
 
   const everyN = Math.max(2, params.secondaryEveryNColumns ?? 4);
 
@@ -172,21 +189,24 @@ export function autoFillWall(params: {
       }
 
       let chosen = params.primaryVariant;
+      let footprint = variantUnitsForBase(chosen, baseUnitWidthMm, baseUnitHeightMm);
+
       if (
         params.secondaryVariant &&
         x % everyN === everyN - 1 &&
-        y + params.secondaryVariant.unitHeight <= params.heightUnits
+        y + variantUnitsForBase(params.secondaryVariant, baseUnitWidthMm, baseUnitHeightMm).unitHeight <= params.heightUnits
       ) {
         chosen = params.secondaryVariant;
+        footprint = variantUnitsForBase(chosen, baseUnitWidthMm, baseUnitHeightMm);
       }
 
-      if (x + chosen.unitWidth > params.widthUnits || y + chosen.unitHeight > params.heightUnits) {
+      if (x + footprint.unitWidth > params.widthUnits || y + footprint.unitHeight > params.heightUnits) {
         continue;
       }
 
       let overlaps = false;
-      for (let yy = y; yy < y + chosen.unitHeight; yy += 1) {
-        for (let xx = x; xx < x + chosen.unitWidth; xx += 1) {
+      for (let yy = y; yy < y + footprint.unitHeight; yy += 1) {
+        for (let xx = x; xx < x + footprint.unitWidth; xx += 1) {
           if (occupied[yy][xx]) {
             overlaps = true;
             break;
@@ -198,8 +218,8 @@ export function autoFillWall(params: {
         continue;
       }
 
-      for (let yy = y; yy < y + chosen.unitHeight; yy += 1) {
-        for (let xx = x; xx < x + chosen.unitWidth; xx += 1) {
+      for (let yy = y; yy < y + footprint.unitHeight; yy += 1) {
+        for (let xx = x; xx < x + footprint.unitWidth; xx += 1) {
           occupied[yy][xx] = true;
         }
       }
@@ -211,8 +231,8 @@ export function autoFillWall(params: {
         label: `C${String(filled.length + 1).padStart(3, "0")}`,
         unitX: x,
         unitY: y,
-        unitWidth: chosen.unitWidth,
-        unitHeight: chosen.unitHeight,
+        unitWidth: footprint.unitWidth,
+        unitHeight: footprint.unitHeight,
         status: "active",
         notes: ""
       });

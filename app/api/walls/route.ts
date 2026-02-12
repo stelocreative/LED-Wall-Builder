@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
       wallId: tempWallId,
       widthUnits: grid.widthUnits,
       heightUnits: grid.heightUnits,
+      baseUnitWidthMm: payload.baseUnitWidthMm,
+      baseUnitHeightMm: payload.baseUnitHeightMm,
       primaryVariant,
       secondaryVariant: payload.includeMixed ? secondaryVariant : null,
       secondaryEveryNColumns: 4
