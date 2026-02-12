@@ -84,6 +84,55 @@ export default function PowerPlanPanel({
     onPowerPlanChange(powerPlan.filter(c => c.id !== id));
   };
 
+  const getPowerOrderedLayout = (entrySide) => {
+    const rackLocation = wall?.rack_location || 'SL';
+    const preferLeftToRight = rackLocation !== 'SR';
+    const preferTopToBottom = wall?.deployment_type === 'flown';
+    const byCol = {};
+    const byRow = {};
+
+    layout.forEach((item) => {
+      if (!byCol[item.col]) byCol[item.col] = [];
+      if (!byRow[item.row]) byRow[item.row] = [];
+      byCol[item.col].push(item);
+      byRow[item.row].push(item);
+    });
+
+    const sortedCols = Object.keys(byCol)
+      .map(Number)
+      .sort((a, b) => (preferLeftToRight ? a - b : b - a));
+    const sortedRows = Object.keys(byRow)
+      .map(Number)
+      .sort((a, b) => (preferTopToBottom ? a - b : b - a));
+
+    const ordered = [];
+
+    if (entrySide === 'top' || entrySide === 'bottom') {
+      const rowCompare = entrySide === 'top' ? (a, b) => a.row - b.row : (a, b) => b.row - a.row;
+      sortedCols.forEach((col) => {
+        const colItems = [...byCol[col]].sort((a, b) => rowCompare(a, b));
+        ordered.push(...colItems);
+      });
+      return ordered;
+    }
+
+    if (entrySide === 'left' || entrySide === 'right') {
+      const colCompare = entrySide === 'left' ? (a, b) => a.col - b.col : (a, b) => b.col - a.col;
+      sortedRows.forEach((row) => {
+        const rowItems = [...byRow[row]].sort((a, b) => colCompare(a, b));
+        ordered.push(...rowItems);
+      });
+      return ordered;
+    }
+
+    // Custom: fallback to deployment-aware row-first ordering.
+    sortedRows.forEach((row) => {
+      const rowItems = [...byRow[row]].sort((a, b) => (preferLeftToRight ? a.col - b.col : b.col - a.col));
+      ordered.push(...rowItems);
+    });
+    return ordered;
+  };
+
   const autoAssign = () => {
     if (layout.length === 0) return;
     
@@ -95,6 +144,7 @@ export default function PowerPlanPanel({
       : variant.cabinets_per_20a_208v || 14;
 
     const powerEntry = wall?.power_entry_side || (wall?.deployment_type === 'flown' ? 'top' : 'bottom');
+    const orderedLayout = getPowerOrderedLayout(powerEntry);
 
     const newCircuits = [];
     let currentCircuit = { 
@@ -103,22 +153,22 @@ export default function PowerPlanPanel({
       cabinet_ids: [],
       drop_location: powerEntry,
       distro_type: strategy.perTail ? 'Socapex breakout' : 'Edison tree',
-      notes: ''
+      notes: `Auto ${powerEntry}-entry grouping`
     };
 
-    layout.forEach((item, idx) => {
+    orderedLayout.forEach((item, idx) => {
       currentCircuit.cabinet_ids.push(item.id);
       
-      if (currentCircuit.cabinet_ids.length >= cabinetsPerCircuit || idx === layout.length - 1) {
+      if (currentCircuit.cabinet_ids.length >= cabinetsPerCircuit || idx === orderedLayout.length - 1) {
         newCircuits.push(currentCircuit);
-        if (idx < layout.length - 1) {
+        if (idx < orderedLayout.length - 1) {
           currentCircuit = {
             id: `circuit-${Date.now()}-${idx}`,
             label: `Circuit ${newCircuits.length + 1}`,
             cabinet_ids: [],
             drop_location: powerEntry,
             distro_type: strategy.perTail ? 'Socapex breakout' : 'Edison tree',
-            notes: ''
+            notes: `Auto ${powerEntry}-entry grouping`
           };
         }
       }
