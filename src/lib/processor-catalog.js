@@ -22,11 +22,11 @@ export const PROCESSOR_LIBRARY = {
 export const RECEIVING_CARD_LIBRARY = {
   a8s: {
     id: "a8s",
-    name: "A8s / Standard Armor Cards"
+    name: "A8s"
   },
   a10s: {
     id: "a10s",
-    name: "A10s / A10s Pro Profile"
+    name: "A10s / A10s Pro"
   }
 };
 

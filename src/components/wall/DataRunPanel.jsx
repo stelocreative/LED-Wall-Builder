@@ -191,9 +191,12 @@ export default function DataRunPanel({
       return;
     }
 
-    const sorted = [...layout].sort((a, b) => {
-      if (a.row !== b.row) return a.row - b.row;
-      return a.row % 2 === 0 ? a.col - b.col : b.col - a.col;
+    const orderedRows = Array.from(new Set(layout.map((item) => item.row))).sort((a, b) => a - b);
+    const sorted = orderedRows.flatMap((rowValue, rowIndex) => {
+      const rowItems = layout
+        .filter((item) => item.row === rowValue)
+        .sort((a, b) => a.col - b.col);
+      return rowIndex % 2 === 0 ? rowItems : [...rowItems].reverse();
     });
 
     const runs = buildRunsFromGroups(
@@ -325,7 +328,7 @@ export default function DataRunPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="grid grid-cols-2 gap-2 text-center">
           <div className="p-2 bg-slate-700/50 rounded">
             <p className="text-xs text-slate-400">Runs</p>
             <p className="text-lg font-bold text-white">{dataRuns.length}</p>
@@ -340,7 +343,7 @@ export default function DataRunPanel({
           </div>
           <div className={`p-2 rounded ${wallExceedsProcessorLimit ? 'bg-red-900/40 border border-red-700/50' : 'bg-slate-700/50'}`}>
             <p className="text-xs text-slate-400">Wall Pixels</p>
-            <p className="text-sm font-bold text-white">{totalWallPixels.toLocaleString()}</p>
+            <p className="text-lg font-bold text-white">{totalWallPixels.toLocaleString()}</p>
           </div>
         </div>
 
@@ -367,21 +370,23 @@ export default function DataRunPanel({
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Button size="sm" onClick={addRun} className="flex-1 bg-slate-700 hover:bg-slate-600">
+        <div className="grid grid-cols-1 gap-2">
+          <Button size="sm" onClick={addRun} className="w-full bg-slate-700 hover:bg-slate-600">
             <Plus className="w-4 h-4 mr-1" /> Add Run
           </Button>
-          <Button size="sm" onClick={autoSnake} variant="outline" className="flex-1 gap-1">
-            <Wand2 className="w-4 h-4" /> Snake
-          </Button>
-          <Button size="sm" onClick={autoColumn} variant="outline" className="flex-1 gap-1">
-            <Wand2 className="w-4 h-4" /> Columns
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button size="sm" onClick={autoSnake} variant="outline" className="w-full gap-1">
+              <Wand2 className="w-4 h-4" /> Snake
+            </Button>
+            <Button size="sm" onClick={autoColumn} variant="outline" className="w-full gap-1">
+              <Wand2 className="w-4 h-4" /> Columns
+            </Button>
+          </div>
         </div>
 
         <Separator className="bg-slate-700" />
 
-        <div className="space-y-2 max-h-72 overflow-y-auto">
+        <div className="space-y-2">
           {dataRuns.map((run, index) => {
             const metrics = metricsByRunId.get(run.id) || {
               pixelLoad: getRunPixelLoad(run, layout, cabinets),

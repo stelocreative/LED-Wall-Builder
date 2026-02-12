@@ -343,10 +343,20 @@ const DeploymentSheet = forwardRef(({
                   const y1 = (item.row + spanRows/2) * cellSize;
                   const x2 = (nextItem.col + nextSpanCols/2) * cellSize;
                   const y2 = (nextItem.row + nextSpanRows/2) * cellSize;
+                  const points =
+                    x1 === x2 || y1 === y2
+                      ? `${x1},${y1} ${x2},${y2}`
+                      : `${x1},${y1} ${x2},${y1} ${x2},${y2}`;
                   
                   return (
-                    <line key={`${runIdx}-${pIdx}`} x1={x1} y1={y1} x2={x2} y2={y2}
-                          stroke="#3b82f6" strokeWidth="2" markerEnd="url(#arrow)" />
+                    <polyline
+                      key={`${runIdx}-${pIdx}`}
+                      points={points}
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="2"
+                      markerEnd="url(#arrow)"
+                    />
                   );
                 });
               })}

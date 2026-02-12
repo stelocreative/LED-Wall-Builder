@@ -219,19 +219,22 @@ export default function WallCanvas({
 
   const renderDataPaths = () => {
     if (!showDataPaths || !dataRuns.length) return null;
-    
-    return dataRuns.map((run, idx) => {
-      if (!run.path || run.path.length < 2) return null;
-      
-      return run.path.map((point, pIdx) => {
-        if (pIdx === run.path.length - 1) return null;
-        const nextPoint = run.path[pIdx + 1];
-        const item = layout.find(l => l.id === point);
-        const nextItem = layout.find(l => l.id === nextPoint);
-        if (!item || !nextItem) return null;
 
-        const variant = cabinets.find(c => c.id === item.cabinet_id);
-        const nextVariant = cabinets.find(c => c.id === nextItem.cabinet_id);
+    const segments = [];
+
+    dataRuns.forEach((run, runIndex) => {
+      if (!run.path || run.path.length < 2) return;
+
+      run.path.forEach((point, pointIndex) => {
+        if (pointIndex === run.path.length - 1) return;
+
+        const nextPoint = run.path[pointIndex + 1];
+        const item = layout.find((entry) => entry.id === point);
+        const nextItem = layout.find((entry) => entry.id === nextPoint);
+        if (!item || !nextItem) return;
+
+        const variant = cabinets.find((cabinet) => cabinet.id === item.cabinet_id);
+        const nextVariant = cabinets.find((cabinet) => cabinet.id === nextItem.cabinet_id);
         const wUnits = variant ? Math.round(variant.width_mm / baseGridWidth) : 1;
         const hUnits = variant ? Math.round(variant.height_mm / baseGridHeight) : 1;
         const nextWUnits = nextVariant ? Math.round(nextVariant.width_mm / baseGridWidth) : 1;
@@ -242,23 +245,37 @@ export default function WallCanvas({
         const x2 = (nextItem.col + nextWUnits / 2) * baseCellSize * zoom + pan.x;
         const y2 = (nextItem.row + nextHUnits / 2) * baseCellSize * zoom + pan.y;
 
-        return (
-          <svg key={`data-${idx}-${pIdx}`} className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
-            <defs>
-              <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
-              </marker>
-            </defs>
-            <line 
-              x1={x1} y1={y1} x2={x2} y2={y2} 
-              stroke="#3b82f6" 
-              strokeWidth="2"
-              markerEnd="url(#arrowhead-blue)"
-            />
-          </svg>
+        // LED jumper maps are orthogonal in real-world rigging, never diagonal.
+        const points =
+          x1 === x2 || y1 === y2
+            ? `${x1},${y1} ${x2},${y2}`
+            : `${x1},${y1} ${x2},${y1} ${x2},${y2}`;
+
+        segments.push(
+          <polyline
+            key={`data-${runIndex}-${pointIndex}`}
+            points={points}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth="2"
+            markerEnd="url(#arrowhead-blue)"
+          />
         );
       });
     });
+
+    if (!segments.length) return null;
+
+    return (
+      <svg className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
+        <defs>
+          <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+          </marker>
+        </defs>
+        {segments}
+      </svg>
+    );
   };
 
   const cells = [];
