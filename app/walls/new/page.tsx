@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { feetToMeters, metersToFeet, roundTo } from "@/lib/domain/conversions";
 import { CabinetVariant, PanelFamily, ShowEvent } from "@/lib/domain/types";
@@ -14,13 +14,12 @@ interface BootstrapPayload {
 
 export default function NewWallPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [families, setFamilies] = useState<PanelFamily[]>([]);
   const [variants, setVariants] = useState<CabinetVariant[]>([]);
   const [shows, setShows] = useState<ShowEvent[]>([]);
 
-  const [showId, setShowId] = useState<string>(searchParams.get("showId") ?? "");
+  const [showId, setShowId] = useState<string>("");
   const [name, setName] = useState("Upstage Main Wall");
   const [deploymentType, setDeploymentType] = useState<"GROUND_STACK" | "FLOWN">("FLOWN");
   const [voltageMode, setVoltageMode] = useState<120 | 208>(208);
@@ -47,6 +46,13 @@ export default function NewWallPage() {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("showId");
+    if (fromUrl) {
+      setShowId(fromUrl);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;

@@ -1,5 +1,5 @@
 import { feetToMeters, kgToLbs, metersToFeet, metersToFeetInchesLabel, roundTo } from "@/lib/domain/conversions";
-import { CabinetVariant, PowerProfile, VoltageMode, Wall, WallCell, WallTotals } from "@/lib/domain/types";
+import { CabinetVariant, PowerProfile, Wall, WallCell, WallTotals } from "@/lib/domain/types";
 
 export interface GridDeriveInput {
   widthMeters?: number;
