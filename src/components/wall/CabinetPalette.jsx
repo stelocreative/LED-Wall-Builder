@@ -2,13 +2,15 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import CabinetCard from '../library/CabinetCard';
+import { Button } from "@/components/ui/button";
+import { Wand2 } from 'lucide-react';
 
 export default function CabinetPalette({ 
   cabinets, 
   families, 
   selectedCabinet, 
   onSelectCabinet,
+  onAutoPlace,
   baseGridWidth = 500,
   baseGridHeight = 500
 }) {
@@ -20,8 +22,23 @@ export default function CabinetPalette({
 
   return (
     <Card className="bg-slate-800 border-slate-700">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-white text-sm">Cabinet Palette</CardTitle>
+      <CardHeader className="pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-white text-sm">Cabinet Palette</CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onAutoPlace}
+            disabled={!selectedCabinet}
+            className="h-8 border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700"
+          >
+            <Wand2 className="w-3 h-3 mr-1.5" />
+            Auto Place
+          </Button>
+        </div>
+        <p className="text-xs text-slate-400">
+          Select a cabinet, then auto-fill all open spots that physically fit that size.
+        </p>
       </CardHeader>
       <CardContent className="p-2">
         <ScrollArea className="h-48">

@@ -35,6 +35,7 @@ import RevisionPanel from '../components/wall/RevisionPanel';
 import LabelGenerator from '../components/wall/LabelGenerator';
 import CablePullList from '../components/wall/CablePullList';
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
+import { toast } from "@/components/ui/use-toast";
 
 const BASE_GRID_MM = 500;
 const GRID_UNIT_M = BASE_GRID_MM / 1000;
@@ -57,6 +58,17 @@ function parsePositiveNumber(value, fallback) {
     return fallback;
   }
   return parsed;
+}
+
+function getVariantSpan(variant, baseGridWidth, baseGridHeight) {
+  if (!variant) {
+    return { cols: 1, rows: 1 };
+  }
+
+  return {
+    cols: Math.max(1, Math.round((variant.width_mm || baseGridWidth) / baseGridWidth)),
+    rows: Math.max(1, Math.round((variant.height_mm || baseGridHeight) / baseGridHeight))
+  };
 }
 
 export default function WallDesigner() {
@@ -198,6 +210,98 @@ export default function WallDesigner() {
   const widthMeters = (gridCols * GRID_UNIT_M).toFixed(1);
   const heightMeters = (gridRows * GRID_UNIT_M).toFixed(1);
 
+  const autoPlaceSelectedCabinet = () => {
+    if (!selectedCabinet) {
+      toast({
+        title: "Select a cabinet first",
+        description: "Pick a cabinet variant, then click Auto Place."
+      });
+      return;
+    }
+
+    const variant = cabinets.find((cab) => cab.id === selectedCabinet);
+    if (!variant) {
+      toast({
+        title: "Cabinet not found",
+        description: "The selected cabinet is missing from the library."
+      });
+      return;
+    }
+
+    const { cols: spanCols, rows: spanRows } = getVariantSpan(variant, baseGridWidth, baseGridHeight);
+    const occupancy = Array.from({ length: gridRows }, () => Array(gridCols).fill(false));
+
+    layout.forEach((item) => {
+      const itemVariant = cabinets.find((cab) => cab.id === item.cabinet_id);
+      const { cols: itemCols, rows: itemRows } = getVariantSpan(itemVariant, baseGridWidth, baseGridHeight);
+      for (let row = item.row; row < item.row + itemRows && row < gridRows; row += 1) {
+        for (let col = item.col; col < item.col + itemCols && col < gridCols; col += 1) {
+          occupancy[row][col] = true;
+        }
+      }
+    });
+
+    const canPlaceAt = (startCol, startRow) => {
+      if (startCol + spanCols > gridCols || startRow + spanRows > gridRows) {
+        return false;
+      }
+
+      for (let row = startRow; row < startRow + spanRows; row += 1) {
+        for (let col = startCol; col < startCol + spanCols; col += 1) {
+          if (occupancy[row][col]) {
+            return false;
+          }
+        }
+      }
+      return true;
+    };
+
+    const markOccupied = (startCol, startRow) => {
+      for (let row = startRow; row < startRow + spanRows; row += 1) {
+        for (let col = startCol; col < startCol + spanCols; col += 1) {
+          occupancy[row][col] = true;
+        }
+      }
+    };
+
+    const placedItems = [];
+    let labelCounter = layout.length + 1;
+    const now = Date.now();
+
+    for (let row = 0; row < gridRows; row += 1) {
+      for (let col = 0; col < gridCols; col += 1) {
+        if (!canPlaceAt(col, row)) {
+          continue;
+        }
+
+        markOccupied(col, row);
+        placedItems.push({
+          id: `cell-${now}-${row}-${col}-${placedItems.length}`,
+          col,
+          row,
+          cabinet_id: selectedCabinet,
+          label: `P${labelCounter}`,
+          status: 'active'
+        });
+        labelCounter += 1;
+      }
+    }
+
+    if (placedItems.length === 0) {
+      toast({
+        title: "No room for this cabinet size",
+        description: `No ${variant.variant_name} positions fit in the remaining open grid.`
+      });
+      return;
+    }
+
+    handleLayoutChange([...layout, ...placedItems]);
+    toast({
+      title: "Auto Place complete",
+      description: `Placed ${placedItems.length} ${variant.variant_name} cabinets.`
+    });
+  };
+
   return (
     <>
       <div className={`min-h-screen bg-slate-900 text-white ${showPrintPreview ? 'print:hidden' : ''}`}>
@@ -279,6 +383,7 @@ export default function WallDesigner() {
                       setSelectedCabinet(id);
                       if (id) setTool('place');
                     }}
+                    onAutoPlace={autoPlaceSelectedCabinet}
                     baseGridWidth={baseGridWidth}
                     baseGridHeight={baseGridHeight}
                   />
