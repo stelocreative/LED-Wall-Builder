@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { CrewPacketDocument } from "@/lib/pdf/crew-packet-document";
+import { computeWallTotals } from "@/lib/domain/wall-layout";
 import { buildDataPlan } from "@/lib/planning/data-plan";
-import { buildMirroredDataPlan, buildMirroredPowerPlan } from "@/lib/planning/mirroring";
 import { buildPowerPlan } from "@/lib/planning/power-plan";
-import { getReferenceData, getTheme, getWallById } from "@/lib/supabase/queries";
+import { getBootstrapData, getTheme, getWallBundleById } from "@/lib/supabase/queries";
 
 export const runtime = "nodejs";
 
@@ -14,64 +14,72 @@ interface Context {
 
 export async function GET(request: NextRequest, context: Context) {
   const { id } = await context.params;
-  const wall = await getWallById(id);
-  if (!wall) {
+  const [bundle, bootstrap, theme] = await Promise.all([getWallBundleById(id), getBootstrapData(), getTheme()]);
+
+  if (!bundle) {
     return NextResponse.json({ message: "Wall not found" }, { status: 404 });
   }
 
-  const [reference, theme] = await Promise.all([getReferenceData(), getTheme()]);
-  const panelMap = Object.fromEntries(reference.panels.map((panel) => [panel.id, panel]));
+  const variantsById = Object.fromEntries(bootstrap.variants.map((variant) => [variant.id, variant]));
+  const familiesById = Object.fromEntries(bootstrap.families.map((family) => [family.id, family]));
 
-  const processor =
-    reference.processors.find((item) => item.id === request.nextUrl.searchParams.get("processor")) ?? reference.processors[0];
-  const receivingCard = (request.nextUrl.searchParams.get("receivingCard") as "A8s" | "A10s" | null) ?? "A10s";
-  const sourceType = (request.nextUrl.searchParams.get("sourceType") as "20A" | "SOCAPEX" | "L21-30" | null) ?? "L21-30";
-
-  let dataPlan = buildDataPlan({
-    wall,
-    processor,
-    receivingCard,
-    panelMap,
-    loomBundleSize: Number(request.nextUrl.searchParams.get("loomBundleSize") ?? 4),
-    portGroupSize: Number(request.nextUrl.searchParams.get("portGroupSize") ?? 2)
-  });
-
-  let powerPlan = buildPowerPlan({
-    wall,
-    panelMap,
-    sourceType,
-    voltage: wall.voltage
-  });
-
-  if (wall.imagRole === "mirror" && (wall.mirroredPortOrder || wall.mirroredCircuitMapping)) {
-    dataPlan = buildMirroredDataPlan(dataPlan, {
-      mirroredPortOrder: wall.mirroredPortOrder,
-      mirroredCircuitMapping: wall.mirroredCircuitMapping
-    });
-    powerPlan = buildMirroredPowerPlan(powerPlan, {
-      mirroredPortOrder: wall.mirroredPortOrder,
-      mirroredCircuitMapping: wall.mirroredCircuitMapping
-    });
+  const processorId = request.nextUrl.searchParams.get("processorId") ?? bootstrap.processors[0]?.id;
+  const processor = bootstrap.processors.find((item) => item.id === processorId) ?? bootstrap.processors[0];
+  if (!processor) {
+    return NextResponse.json({ message: "No processor models available" }, { status: 400 });
   }
 
-  const revisionNotes = request.nextUrl.searchParams.get("revisionNotes") ?? "R1: Initial issue";
+  const receivingCard =
+    (request.nextUrl.searchParams.get("receivingCard") as "A8s" | "A10s" | null) ?? bootstrap.receivingCards[0];
+
+  const dataPlan = buildDataPlan({
+    wall: bundle.wall,
+    cells: bundle.cells,
+    variantsById,
+    processor,
+    receivingCard,
+    dataPathMode: "SNAKE_ROWS",
+    loomBundleSize: Number(request.nextUrl.searchParams.get("loomBundleSize") ?? 4),
+    portGroupSize: Number(request.nextUrl.searchParams.get("portGroupSize") ?? 2),
+    rackLocation: bundle.wall.rackLocation
+  });
+
+  const powerPlan = buildPowerPlan({
+    wall: bundle.wall,
+    cells: bundle.cells,
+    variantsById,
+    strategy: bundle.wall.powerStrategy,
+    voltageMode: bundle.wall.voltageMode,
+    groupingMode: "BALANCED",
+    planningThresholdPercent: bundle.wall.planningThresholdPercent,
+    hardLimitPercent: bundle.wall.hardLimitPercent
+  });
+
+  const totals = computeWallTotals({
+    wall: bundle.wall,
+    cells: bundle.cells,
+    variantsById,
+    familiesById
+  });
+
+  const revisionNotes = request.nextUrl.searchParams.get("revisionNotes") ?? "R1: Initial deployment issue";
 
   const pdfBuffer = await renderToBuffer(
     CrewPacketDocument({
-      wall,
-      panelMap,
+      show: bundle.show,
+      wall: bundle.wall,
+      totals,
       dataPlan,
       powerPlan,
       theme,
       revisionNotes
     })
   );
-  const pdfBytes = new Uint8Array(pdfBuffer);
 
-  return new NextResponse(pdfBytes, {
+  return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${wall.name.replace(/\s+/g, "-").toLowerCase()}-crew-packet.pdf"`
+      "Content-Disposition": `inline; filename="${bundle.wall.name.replace(/\s+/g, "-").toLowerCase()}-deployment-sheet.pdf"`
     }
   });
 }

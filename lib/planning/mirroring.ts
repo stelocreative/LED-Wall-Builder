@@ -5,51 +5,36 @@ export interface MirrorOptions {
   mirroredCircuitMapping: boolean;
 }
 
-export function mirrorPortIndex(portIndex: number, totalPorts: number, mirroredPortOrder: boolean): number {
-  if (!mirroredPortOrder) {
-    return portIndex;
-  }
-  return totalPorts - 1 - portIndex;
-}
-
-export function mirrorCircuitIndex(
-  circuitIndex: number,
-  totalCircuits: number,
-  mirroredCircuitMapping: boolean
-): number {
-  if (!mirroredCircuitMapping) {
-    return circuitIndex;
-  }
-  return totalCircuits - circuitIndex - 1;
-}
-
 export function buildMirroredDataPlan(masterPlan: DataPlanResult, options: MirrorOptions): DataPlanResult {
-  const maxPort = Math.max(...masterPlan.blocks.map((block) => block.portIndex), 0) + 1;
+  if (!options.mirroredPortOrder) {
+    return masterPlan;
+  }
+
+  const totalPorts = Math.max(...masterPlan.runs.map((run) => run.portIndex), 0) + 1;
 
   return {
     ...masterPlan,
-    notes: [...masterPlan.notes, "Mirrored from IMAG master plan"],
-    blocks: masterPlan.blocks.map((block) => ({
-      ...block,
-      portIndex: mirrorPortIndex(block.portIndex, maxPort, options.mirroredPortOrder)
+    runs: masterPlan.runs.map((run) => ({
+      ...run,
+      portIndex: totalPorts - 1 - run.portIndex,
+      processorPort: `Port ${totalPorts - run.portIndex}`
     }))
   };
 }
 
 export function buildMirroredPowerPlan(masterPlan: PowerPlanResult, options: MirrorOptions): PowerPlanResult {
-  const totalCircuits = masterPlan.circuits.length;
+  if (!options.mirroredCircuitMapping) {
+    return masterPlan;
+  }
 
-  const circuits = masterPlan.circuits.map((circuit, idx) => {
-    const mapped = mirrorCircuitIndex(idx, totalCircuits, options.mirroredCircuitMapping);
-    return {
-      ...circuit,
-      circuitNumber: mapped + 1,
-      phaseLabel: masterPlan.circuits[mapped]?.phaseLabel ?? circuit.phaseLabel
-    };
-  });
+  const total = masterPlan.circuits.length;
 
   return {
     ...masterPlan,
-    circuits
+    circuits: masterPlan.circuits.map((circuit) => ({
+      ...circuit,
+      circuitNumber: total - circuit.circuitNumber + 1,
+      label: `${circuit.label}-MIR`
+    }))
   };
 }

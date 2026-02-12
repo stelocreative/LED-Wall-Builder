@@ -1,159 +1,174 @@
-import { DataBlock, DataPlanResult, PanelVariant, ProcessorModel, ReceivingCardModel, Wall } from "@/lib/domain/types";
+import { estimateHomeRunDistanceMeters } from "@/lib/domain/wall-layout";
+import {
+  CabinetVariant,
+  DataPathMode,
+  DataPlanResult,
+  ProcessorModel,
+  RackLocation,
+  ReceivingCardModel,
+  Wall,
+  WallCell
+} from "@/lib/domain/types";
+import { metersToFeet, roundTo } from "@/lib/domain/conversions";
 
 export interface DataPlanInput {
   wall: Wall;
+  cells: WallCell[];
+  variantsById: Record<string, CabinetVariant>;
   processor: ProcessorModel;
   receivingCard: ReceivingCardModel;
-  panelMap: Record<string, PanelVariant>;
+  dataPathMode: DataPathMode;
   loomBundleSize: number;
   portGroupSize: number;
+  rackLocation: RackLocation;
 }
 
-function lcm(a: number, b: number): number {
-  const gcd = (x: number, y: number): number => (y === 0 ? x : gcd(y, x % y));
-  return Math.abs((a * b) / gcd(a, b));
+interface RowBand {
+  rowStart: number;
+  rowEnd: number;
+  cabinetIds: string[];
+  pixelLoad: number;
 }
 
-function isSafeBoundary(row: number, wall: Wall): boolean {
-  return !wall.cabinets.some((cabinet) => cabinet.y < row && row < cabinet.y + cabinet.unitHeight);
-}
-
-function cabinetPixels(panelMap: Record<string, PanelVariant>, panelVariantId: string): number {
-  const panel = panelMap[panelVariantId];
-  if (!panel) {
+function cabinetPixels(variant: CabinetVariant | undefined): number {
+  if (!variant) {
     return 0;
   }
-  return panel.pixels.width * panel.pixels.height;
+  return variant.pixels.width * variant.pixels.height;
 }
 
-function rowPixelLoad(row: number, wall: Wall, panelMap: Record<string, PanelVariant>): number {
-  return wall.cabinets
-    .filter((cabinet) => cabinet.y <= row && row < cabinet.y + cabinet.unitHeight)
-    .reduce((sum, cabinet) => {
-      const panel = panelMap[cabinet.panelVariantId];
-      if (!panel) {
-        return sum;
-      }
-      return sum + panel.pixels.width * (panel.pixels.height / panel.unitHeight);
-    }, 0);
+function safeBoundaries(wall: Wall, cells: WallCell[]): number[] {
+  const boundaries = [0, wall.heightUnits];
+
+  for (let y = 1; y < wall.heightUnits; y += 1) {
+    const cutsCabinet = cells.some((cell) => cell.unitY < y && y < cell.unitY + cell.unitHeight);
+    if (!cutsCabinet) {
+      boundaries.push(y);
+    }
+  }
+
+  return Array.from(new Set(boundaries)).sort((a, b) => a - b);
 }
 
-function chooseConsistentBlockRows(
-  wall: Wall,
-  maxRowsByCapacity: number,
-  alignment: number
-): number {
-  const candidates: number[] = [];
+function buildRowBands(input: DataPlanInput): RowBand[] {
+  const active = input.cells.filter((cell) => cell.status === "active" && cell.variantId);
+  const boundaries = safeBoundaries(input.wall, active);
 
-  for (let rows = alignment; rows <= wall.heightUnits; rows += alignment) {
-    if (rows > maxRowsByCapacity || wall.heightUnits % rows !== 0) {
+  const bands: RowBand[] = [];
+
+  for (let i = 0; i < boundaries.length - 1; i += 1) {
+    const rowStart = boundaries[i];
+    const rowEnd = boundaries[i + 1] - 1;
+
+    const inBand = active.filter(
+      (cell) => cell.unitY + cell.unitHeight - 1 >= rowStart && cell.unitY <= rowEnd && cell.variantId
+    );
+
+    if (!inBand.length) {
       continue;
     }
 
-    let valid = true;
-    for (let boundary = rows; boundary < wall.heightUnits; boundary += rows) {
-      if (!isSafeBoundary(boundary, wall)) {
-        valid = false;
-        break;
-      }
-    }
-
-    if (valid) {
-      candidates.push(rows);
-    }
-  }
-
-  if (candidates.length > 0) {
-    return Math.max(...candidates);
-  }
-
-  for (let rows = Math.min(maxRowsByCapacity, wall.heightUnits); rows >= 1; rows -= 1) {
-    if (wall.heightUnits % rows !== 0) {
-      continue;
-    }
-
-    let valid = true;
-    for (let boundary = rows; boundary < wall.heightUnits; boundary += rows) {
-      if (!isSafeBoundary(boundary, wall)) {
-        valid = false;
-        break;
-      }
-    }
-
-    if (valid) {
-      return rows;
-    }
-  }
-
-  return 1;
-}
-
-export function buildDataPlan(input: DataPlanInput): DataPlanResult {
-  const { wall, processor, receivingCard, panelMap } = input;
-
-  const allPixels = wall.cabinets.reduce((sum, cabinet) => sum + cabinetPixels(panelMap, cabinet.panelVariantId), 0);
-  const perPortLimit = processor.maxPixelsPerPort[receivingCard];
-  const maxRowPixels = Math.max(...Array.from({ length: wall.heightUnits }, (_, row) => rowPixelLoad(row, wall, panelMap)), 1);
-
-  const cabinetHeights = wall.cabinets.map((cabinet) => cabinet.unitHeight);
-  const alignment = cabinetHeights.reduce((acc, value) => lcm(acc, value), 1);
-
-  const maxRowsByCapacity = Math.max(alignment, Math.floor(perPortLimit / maxRowPixels));
-  const blockRows = chooseConsistentBlockRows(wall, maxRowsByCapacity, alignment);
-
-  const blocks: DataBlock[] = [];
-  let overload = false;
-
-  const blockCount = Math.ceil(wall.heightUnits / blockRows);
-  for (let i = 0; i < blockCount; i += 1) {
-    const rowStart = i * blockRows;
-    const rowEnd = Math.min(wall.heightUnits - 1, rowStart + blockRows - 1);
-
-    const cabinetIds = wall.cabinets
-      .filter((cabinet) => cabinet.y + cabinet.unitHeight - 1 >= rowStart && cabinet.y <= rowEnd)
-      .map((cabinet) => cabinet.id);
-
-    const pixelLoad = cabinetIds.reduce((sum, id) => {
-      const cabinet = wall.cabinets.find((item) => item.id === id);
-      if (!cabinet) {
-        return sum;
-      }
-      return sum + cabinetPixels(panelMap, cabinet.panelVariantId);
+    const pixelLoad = inBand.reduce((sum, cell) => {
+      const variant = cell.variantId ? input.variantsById[cell.variantId] : undefined;
+      return sum + cabinetPixels(variant);
     }, 0);
 
-    const portIndex = i % processor.ethernetPorts;
-    if (pixelLoad > perPortLimit || i >= processor.ethernetPorts) {
-      overload = true;
-    }
-
-    blocks.push({
-      portIndex,
+    bands.push({
       rowStart,
       rowEnd,
-      cabinetIds,
-      pixelLoad,
-      loomBundle: Math.floor(portIndex / Math.max(1, input.loomBundleSize)) + 1,
-      portGroup: Math.floor(portIndex / Math.max(1, input.portGroupSize)) + 1,
-      cableOrigin: wall.riggingMode === "ground" ? "ground" : "air"
+      cabinetIds: inBand.map((cell) => cell.id),
+      pixelLoad
     });
   }
 
-  const notes: string[] = [];
-  if (overload) {
-    notes.push("Processor port load exceeds safe threshold; increase processor capacity or split wall.");
+  return bands;
+}
+
+function sortByPathMode(cells: WallCell[], mode: DataPathMode): WallCell[] {
+  if (mode === "SNAKE_COLUMNS") {
+    return [...cells].sort((a, b) => {
+      if (a.unitX !== b.unitX) {
+        return a.unitX - b.unitX;
+      }
+      const reverse = a.unitX % 2 === 1;
+      return reverse ? b.unitY - a.unitY : a.unitY - b.unitY;
+    });
   }
-  notes.push(`Data origin: ${wall.riggingMode === "ground" ? "ground rack-up" : "air-down flown origin"}`);
-  notes.push(`Rack location: ${wall.rackLocation}`);
+
+  if (mode === "CUSTOM") {
+    return [...cells].sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  return [...cells].sort((a, b) => {
+    if (a.unitY !== b.unitY) {
+      return a.unitY - b.unitY;
+    }
+    const reverse = a.unitY % 2 === 1;
+    return reverse ? b.unitX - a.unitX : a.unitX - b.unitX;
+  });
+}
+
+export function buildDataPlan(input: DataPlanInput): DataPlanResult {
+  const perPortLimit =
+    input.receivingCard === "A8s" ? input.processor.maxPixelsPerPortA8s : input.processor.maxPixelsPerPortA10s;
+
+  const active = sortByPathMode(
+    input.cells.filter((cell) => cell.status === "active" && cell.variantId),
+    input.dataPathMode
+  );
+
+  const rowBands = buildRowBands(input);
+
+  const warnings: string[] = [];
+  const runs: DataPlanResult["runs"] = [];
+
+  const homeRunMeters = estimateHomeRunDistanceMeters(input.wall, input.rackLocation);
+
+  rowBands.forEach((band, index) => {
+    const portIndex = index % input.processor.ethernetPorts;
+    const overLimit = band.pixelLoad > perPortLimit || index >= input.processor.ethernetPorts;
+
+    if (overLimit) {
+      warnings.push(
+        `Run ${index + 1} exceeds ${input.receivingCard} port capacity (${band.pixelLoad.toLocaleString()} px > ${perPortLimit.toLocaleString()} px).`
+      );
+    }
+
+    const cabinetsInRun = active.filter((cell) => band.cabinetIds.includes(cell.id));
+
+    runs.push({
+      runNumber: index + 1,
+      processorPort: `Port ${portIndex + 1}`,
+      portIndex,
+      cabinetIds: cabinetsInRun.map((cell) => cell.id),
+      cabinetCount: cabinetsInRun.length,
+      jumperCount: Math.max(0, cabinetsInRun.length - 1),
+      estimatedHomeRunMeters: homeRunMeters,
+      estimatedHomeRunFeet: roundTo(metersToFeet(homeRunMeters), 1),
+      loomBundle: Math.floor(portIndex / Math.max(1, input.loomBundleSize)) + 1,
+      portGroup: Math.floor(portIndex / Math.max(1, input.portGroupSize)) + 1,
+      cableOrigin: input.wall.deploymentType === "GROUND_STACK" ? "ground" : "air",
+      pixelLoad: band.pixelLoad,
+      overLimit
+    });
+  });
+
+  if (runs.length === 0 && active.length > 0) {
+    warnings.push("No data runs generated; verify wall cell statuses and variant assignments.");
+  }
+
+  const totalPixels = active.reduce((sum, cell) => {
+    const variant = cell.variantId ? input.variantsById[cell.variantId] : undefined;
+    return sum + cabinetPixels(variant);
+  }, 0);
 
   return {
-    processorId: processor.id,
-    receivingCard,
-    rackLocation: wall.rackLocation,
-    riggingMode: wall.riggingMode,
-    blockRows,
-    totalPixels: allPixels,
-    blocks,
-    overload,
-    notes
+    processorId: input.processor.id,
+    receivingCard: input.receivingCard,
+    dataPathMode: input.dataPathMode,
+    rackLocation: input.rackLocation,
+    runs,
+    totalPixels,
+    warnings
   };
 }

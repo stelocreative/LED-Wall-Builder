@@ -1,10 +1,12 @@
+/* eslint-disable jsx-a11y/alt-text */
 import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { DataPlanResult, PanelVariant, PowerPlanResult, ThemeSettings, Wall } from "@/lib/domain/types";
+import { DataPlanResult, PowerPlanResult, ShowEvent, ThemeSettings, Wall, WallTotals } from "@/lib/domain/types";
 
 interface Props {
+  show: ShowEvent;
   wall: Wall;
-  panelMap: Record<string, PanelVariant>;
+  totals: WallTotals;
   dataPlan: DataPlanResult;
   powerPlan: PowerPlanResult;
   theme: ThemeSettings;
@@ -14,91 +16,81 @@ interface Props {
 const styles = StyleSheet.create({
   page: {
     padding: 24,
-    fontSize: 10,
+    fontSize: 9,
     color: "#0f172a"
   },
   titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#cbd5e1",
+    borderBottomColor: "#CBD5E1",
     paddingBottom: 8
   },
   titleBlock: {
-    width: "70%"
+    width: "72%"
   },
   title: {
-    fontSize: 16,
-    marginBottom: 4
+    fontSize: 15,
+    marginBottom: 2
   },
   subtitle: {
-    fontSize: 10,
-    color: "#334155"
+    fontSize: 9,
+    marginBottom: 1
   },
   logo: {
-    width: 96,
-    height: 40,
+    width: 100,
+    height: 38,
     objectFit: "contain"
   },
   section: {
-    marginBottom: 10,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 8,
-    borderRadius: 3
+    borderColor: "#E2E8F0",
+    padding: 6,
+    borderRadius: 2
   },
   sectionTitle: {
-    fontSize: 12,
-    marginBottom: 6,
-    color: "#0f172a"
+    fontSize: 11,
+    marginBottom: 4
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 2
   },
-  tableHeader: {
+  tableHead: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#cbd5e1",
-    paddingBottom: 3,
-    marginBottom: 3
+    borderBottomColor: "#CBD5E1",
+    marginBottom: 2,
+    paddingBottom: 2
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    paddingVertical: 2
   },
   cell: {
     flex: 1
-  },
-  diagramCell: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-    paddingVertical: 2
   }
 });
 
-export function CrewPacketDocument({ wall, panelMap, dataPlan, powerPlan, theme, revisionNotes }: Props) {
-  const totalWeight = wall.cabinets.reduce((sum, cabinet) => {
-    const panel = panelMap[cabinet.panelVariantId];
-    return sum + (panel?.weightKg ?? 0);
-  }, 0);
-
-  const panelCountByType = wall.cabinets.reduce<Record<string, number>>((acc, cabinet) => {
-    acc[cabinet.panelVariantId] = (acc[cabinet.panelVariantId] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const generationDate = new Date().toISOString().slice(0, 10);
-
+export function CrewPacketDocument({ show, wall, totals, dataPlan, powerPlan, theme, revisionNotes }: Props) {
   return (
-    <Document title={`${wall.name}-crew-packet`}>
-      <Page size="A4" style={[styles.page, { backgroundColor: "#ffffff" }]}>
+    <Document title={`${wall.name}-deployment-sheet`}>
+      <Page size="A4" style={styles.page}>
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
             <Text style={[styles.title, { color: theme.primaryColor }]}>{theme.brandName}</Text>
-            <Text style={styles.subtitle}>Wall Deployment Packet</Text>
+            <Text style={styles.subtitle}>Show: {show.showName}</Text>
+            <Text style={styles.subtitle}>Date: {show.showDate}</Text>
+            <Text style={styles.subtitle}>Venue: {show.venue}</Text>
             <Text style={styles.subtitle}>Wall: {wall.name}</Text>
-            <Text style={styles.subtitle}>Generated: {generationDate}</Text>
+            <Text style={styles.subtitle}>Deployment: {wall.deploymentType === "FLOWN" ? "Flown" : "Ground Stack"}</Text>
+            <Text style={styles.subtitle}>Voltage: {wall.voltageMode}V</Text>
+            <Text style={styles.subtitle}>Revision: {show.revision}</Text>
           </View>
           {theme.logoDataUrl ? <Image src={theme.logoDataUrl} style={styles.logo} /> : null}
         </View>
@@ -106,84 +98,160 @@ export function CrewPacketDocument({ wall, panelMap, dataPlan, powerPlan, theme,
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Summary Totals</Text>
           <View style={styles.row}>
-            <Text>Wall Size</Text>
+            <Text>Wall Size (m)</Text>
             <Text>
-              {wall.widthMeters.toFixed(2)}m x {wall.heightMeters.toFixed(2)}m ({wall.widthUnits} x {wall.heightUnits} units)
+              {totals.widthMeters.toFixed(2)} x {totals.heightMeters.toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.row}>
+            <Text>Wall Size (ft)</Text>
+            <Text>
+              {totals.widthFeet.toFixed(2)} x {totals.heightFeet.toFixed(2)}
             </Text>
           </View>
           <View style={styles.row}>
             <Text>Total Cabinets</Text>
-            <Text>{wall.cabinets.length}</Text>
+            <Text>{totals.totalCabinets}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text>Wall Resolution</Text>
+            <Text>
+              {totals.wallResolution.width} x {totals.wallResolution.height}
+            </Text>
+          </View>
+          <View style={styles.row}>
+            <Text>Total Pixels</Text>
+            <Text>{totals.totalPixels.toLocaleString()}</Text>
           </View>
           <View style={styles.row}>
             <Text>Total Weight</Text>
-            <Text>{totalWeight.toFixed(1)} kg</Text>
-          </View>
-          <View style={styles.row}>
-            <Text>Data Pixels</Text>
-            <Text>{dataPlan.totalPixels.toLocaleString()}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text>Power (Typ)</Text>
             <Text>
-              {powerPlan.totalWatts.typ.toFixed(0)} W / {powerPlan.totalAmps.typ.toFixed(1)} A @ {powerPlan.voltage}V
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text>Panel Mix</Text>
-            <Text>
-              {Object.entries(panelCountByType)
-                .map(([variant, count]) => `${variant}: ${count}`)
-                .join(", ")}
+              {totals.totalWeightKg.toFixed(1)} kg / {totals.totalWeightLbs.toFixed(1)} lbs
             </Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data Routing Diagram (Arrows)</Text>
-          <View style={styles.tableHeader}>
-            <Text style={styles.cell}>Port</Text>
-            <Text style={styles.cell}>Rows</Text>
-            <Text style={styles.cell}>Load</Text>
-            <Text style={styles.cell}>Arrow</Text>
+          <Text style={styles.sectionTitle}>Power Totals ({wall.voltageMode}V)</Text>
+          <View style={styles.row}>
+            <Text>Min</Text>
+            <Text>
+              {powerPlan.totalsWatts.min.toFixed(0)} W / {powerPlan.totalsAmps.min.toFixed(1)} A
+            </Text>
           </View>
-          {dataPlan.blocks.map((block) => (
-            <View key={`${block.portIndex}-${block.rowStart}`} style={styles.diagramCell}>
-              <Text style={styles.cell}>P{block.portIndex + 1}</Text>
+          <View style={styles.row}>
+            <Text>Typical</Text>
+            <Text>
+              {powerPlan.totalsWatts.typ.toFixed(0)} W / {powerPlan.totalsAmps.typ.toFixed(1)} A
+            </Text>
+          </View>
+          <View style={styles.row}>
+            <Text>Max</Text>
+            <Text>
+              {powerPlan.totalsWatts.max.toFixed(0)} W / {powerPlan.totalsAmps.max.toFixed(1)} A
+            </Text>
+          </View>
+          <View style={styles.row}>
+            <Text>Peak</Text>
+            <Text>
+              {powerPlan.totalsWatts.peak.toFixed(0)} W / {powerPlan.totalsAmps.peak.toFixed(1)} A
+            </Text>
+          </View>
+          <View style={styles.row}>
+            <Text>Estimated Circuits</Text>
+            <Text>{powerPlan.estimatedCircuitCount}</Text>
+          </View>
+          {powerPlan.strategy === "SOCAPEX" ? (
+            <>
+              <View style={styles.row}>
+                <Text>Socapex Runs</Text>
+                <Text>{powerPlan.socapexRunsRequired}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text>Socapex Circuits Used</Text>
+                <Text>{powerPlan.socapexCircuitsUsed}</Text>
+              </View>
+            </>
+          ) : null}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Mixed Cabinet Breakdown</Text>
+          <View style={styles.tableHead}>
+            <Text style={styles.cell}>Family</Text>
+            <Text style={styles.cell}>Variant</Text>
+            <Text style={styles.cell}>Count</Text>
+            <Text style={styles.cell}>Weight kg/lbs</Text>
+            <Text style={styles.cell}>Pixels</Text>
+          </View>
+          {totals.variantBreakdown.map((item) => (
+            <View key={item.variantId} style={styles.tableRow}>
+              <Text style={styles.cell}>{item.familyName}</Text>
+              <Text style={styles.cell}>{item.variantName}</Text>
+              <Text style={styles.cell}>{item.count}</Text>
               <Text style={styles.cell}>
-                {block.rowStart + 1} {"->"} {block.rowEnd + 1}
+                {item.weightKg.toFixed(1)} / {item.weightLbs.toFixed(1)}
               </Text>
-              <Text style={styles.cell}>{block.pixelLoad.toLocaleString()} px</Text>
+              <Text style={styles.cell}>{item.pixels.toLocaleString()}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data Run Table</Text>
+          <View style={styles.tableHead}>
+            <Text style={styles.cell}>Run</Text>
+            <Text style={styles.cell}>Port</Text>
+            <Text style={styles.cell}>Cabinets</Text>
+            <Text style={styles.cell}>Jumpers</Text>
+            <Text style={styles.cell}>Home Run</Text>
+          </View>
+          {dataPlan.runs.map((run) => (
+            <View key={run.runNumber} style={styles.tableRow}>
+              <Text style={styles.cell}>D{run.runNumber}</Text>
+              <Text style={styles.cell}>{run.processorPort}</Text>
+              <Text style={styles.cell}>{run.cabinetCount}</Text>
+              <Text style={styles.cell}>{run.jumperCount}</Text>
               <Text style={styles.cell}>
-                {block.cableOrigin === "ground" ? "Ground -> Wall" : "Air -> Wall"}
+                {run.estimatedHomeRunMeters.toFixed(1)}m / {run.estimatedHomeRunFeet.toFixed(1)}ft
               </Text>
             </View>
           ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Power Routing Diagram (Arrows)</Text>
-          <View style={styles.tableHeader}>
+          <Text style={styles.sectionTitle}>Power Circuit Table</Text>
+          <View style={styles.tableHead}>
             <Text style={styles.cell}>Circuit</Text>
             <Text style={styles.cell}>Phase</Text>
             <Text style={styles.cell}>Typ W/A</Text>
-            <Text style={styles.cell}>Arrow</Text>
+            <Text style={styles.cell}>Max W/A</Text>
+            <Text style={styles.cell}>Status</Text>
           </View>
           {powerPlan.circuits.map((circuit) => (
-            <View key={circuit.circuitNumber} style={styles.diagramCell}>
-              <Text style={styles.cell}>C{circuit.circuitNumber}</Text>
-              <Text style={styles.cell}>{circuit.phaseLabel}</Text>
+            <View key={circuit.circuitNumber} style={styles.tableRow}>
+              <Text style={styles.cell}>{circuit.label}</Text>
+              <Text style={styles.cell}>{circuit.phase}</Text>
               <Text style={styles.cell}>
-                {circuit.watts.typ.toFixed(0)}W / {circuit.amps.typ.toFixed(1)}A
+                {circuit.watts.typ.toFixed(0)} / {circuit.amps.typ.toFixed(1)}
               </Text>
-              <Text style={styles.cell}>{wall.riggingMode === "ground" ? "Source -> Ground" : "Source -> Air"}</Text>
+              <Text style={styles.cell}>
+                {circuit.watts.max.toFixed(0)} / {circuit.amps.max.toFixed(1)}
+              </Text>
+              <Text style={styles.cell}>{circuit.overHardLimit ? "Hard" : circuit.overPlanning ? "Planning" : "OK"}</Text>
             </View>
           ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Diagram Legend</Text>
+          <Text>Data arrows: D# labels (source to wall path). Power arrows: P# labels (circuit source to wall).</Text>
+          <Text>Deploy with data and power flow verified against rack location and deployment type.</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Revision Notes</Text>
-          <Text>{revisionNotes || "R1: Initial release"}</Text>
+          <Text>{revisionNotes || "R1: Initial deployment issue"}</Text>
         </View>
       </Page>
     </Document>

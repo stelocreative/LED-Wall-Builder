@@ -15,8 +15,8 @@ const monoFont = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LED Wall Deployment Designer",
-  description: "SaaS planning tool for concert and event LED wall deployments"
+  title: "LED Wall Deployment Designer (Ground Stack + Flown)",
+  description: "Touring-grade planner for concert and event LED wall deployment design and crew paperwork."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -1,20 +1,36 @@
 export type RackLocation = "SL" | "SR" | "USC" | "FOH";
 
-export type RiggingMode = "ground" | "flown";
+export type DeploymentType = "GROUND_STACK" | "FLOWN";
 
-export type ImagRole = "none" | "master" | "mirror";
+export type VoltageMode = 120 | 208;
 
 export type ReceivingCardModel = "A8s" | "A10s";
 
-export type PowerSourceType = "20A" | "SOCAPEX" | "L21-30";
+export type PowerStrategy = "EDISON_20A" | "L21_30" | "SOCAPEX" | "CAMLOCK_DISTRO";
 
-export type VoltageType = 120 | 208;
+export type CircuitGroupingMode = "BALANCED" | "MIN_HOME_RUNS" | "BY_SECTION";
+
+export type DataPathMode = "SNAKE_ROWS" | "SNAKE_COLUMNS" | "CUSTOM";
+
+export type WallCellStatus = "active" | "spare" | "void" | "cutout";
 
 export interface PowerProfile {
   min: number;
   typ: number;
   max: number;
   peak: number;
+}
+
+export interface DimensionMm {
+  widthMm: number;
+  heightMm: number;
+  depthMm: number;
+}
+
+export interface DimensionIn {
+  widthIn: number;
+  heightIn: number;
+  depthIn: number;
 }
 
 export interface PixelDimensions {
@@ -27,94 +43,175 @@ export interface ConnectorProfile {
   power: string;
 }
 
-export interface PanelVariant {
+export interface PanelFamily {
   id: string;
-  name: string;
-  widthMm: number;
-  heightMm: number;
+  manufacturer: string;
+  familyName: string;
+  pixelPitchMm: number;
+  notes: string;
+  outdoorRating: string;
+  serviceAccess: string;
+  createdAt?: string;
+}
+
+export interface CabinetVariant {
+  id: string;
+  familyId: string;
+  variantName: string;
+  dimensionsMm: DimensionMm;
+  dimensionsIn: DimensionIn;
+  pixels: PixelDimensions;
+  weightKg: number;
+  weightLbs: number;
+  connectors: ConnectorProfile;
+  power: PowerProfile;
+  peakFactor: number | null;
+  recommendedPer20A120: number;
+  recommendedPer20A208: number;
+  recommendedPerSoca120: number;
+  recommendedPerSoca208: number;
+  recommendedPerL2130: number;
+  notes: string;
   unitWidth: number;
   unitHeight: number;
-  power: PowerProfile;
-  weightKg: number;
-  pixels: PixelDimensions;
-  connectors: ConnectorProfile;
+  createdAt?: string;
 }
 
 export interface ProcessorModel {
   id: string;
-  name: string;
+  manufacturer: string;
+  modelName: string;
   ethernetPorts: number;
-  maxPixelsPerPort: Record<ReceivingCardModel, number>;
+  maxPixelsPerPortA8s: number;
+  maxPixelsPerPortA10s: number;
+  notes: string;
+  createdAt?: string;
 }
 
-export interface CabinetPlacement {
+export interface ShowEvent {
   id: string;
-  panelVariantId: string;
-  x: number;
-  y: number;
-  unitWidth: number;
-  unitHeight: number;
-  label: string;
+  showName: string;
+  showDate: string;
+  venue: string;
+  notes: string;
+  revision: string;
+  createdAt?: string;
 }
 
 export interface Wall {
   id: string;
+  showId: string;
   name: string;
-  widthMeters: number;
-  heightMeters: number;
+  deploymentType: DeploymentType;
+  voltageMode: VoltageMode;
+  powerStrategy: PowerStrategy;
+  rackLocation: RackLocation;
+  baseUnitWidthMm: number;
+  baseUnitHeightMm: number;
   widthUnits: number;
   heightUnits: number;
-  voltage: VoltageType;
-  rackLocation: RackLocation;
-  riggingMode: RiggingMode;
-  imagRole: ImagRole;
-  imagMasterWallId?: string | null;
-  mirroredPortOrder: boolean;
-  mirroredCircuitMapping: boolean;
-  cabinets: CabinetPlacement[];
+  planningThresholdPercent: number;
+  hardLimitPercent: number;
+  notes: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface DataBlock {
+export interface WallCell {
+  id: string;
+  wallId: string;
+  variantId: string | null;
+  label: string;
+  unitX: number;
+  unitY: number;
+  unitWidth: number;
+  unitHeight: number;
+  status: WallCellStatus;
+  notes: string;
+}
+
+export interface VariantRollup {
+  variantId: string;
+  familyName: string;
+  variantName: string;
+  count: number;
+  weightKg: number;
+  weightLbs: number;
+  pixels: number;
+  power: PowerProfile;
+}
+
+export interface WallTotals {
+  widthMeters: number;
+  heightMeters: number;
+  widthFeet: number;
+  heightFeet: number;
+  widthFeetInchesLabel: string;
+  heightFeetInchesLabel: string;
+  totalCabinets: number;
+  totalWeightKg: number;
+  totalWeightLbs: number;
+  wallResolution: PixelDimensions;
+  totalPixels: number;
+  totalPower: PowerProfile;
+  totalCurrent: PowerProfile;
+  variantBreakdown: VariantRollup[];
+  mixedPitchWarning: string | null;
+}
+
+export interface DataRun {
+  runNumber: number;
+  processorPort: string;
   portIndex: number;
-  rowStart: number;
-  rowEnd: number;
   cabinetIds: string[];
-  pixelLoad: number;
+  cabinetCount: number;
+  jumperCount: number;
+  estimatedHomeRunMeters: number;
+  estimatedHomeRunFeet: number;
   loomBundle: number;
   portGroup: number;
   cableOrigin: "ground" | "air";
+  pixelLoad: number;
+  overLimit: boolean;
 }
 
 export interface DataPlanResult {
   processorId: string;
   receivingCard: ReceivingCardModel;
+  dataPathMode: DataPathMode;
   rackLocation: RackLocation;
-  riggingMode: RiggingMode;
-  blockRows: number;
+  runs: DataRun[];
   totalPixels: number;
-  blocks: DataBlock[];
-  overload: boolean;
-  notes: string[];
+  warnings: string[];
 }
 
-export interface CircuitLoad {
+export interface PowerCircuit {
   circuitNumber: number;
-  sourceType: PowerSourceType;
-  phaseLabel: string;
+  label: string;
+  phase: string;
+  breakerAmps: number;
+  planningAmps: number;
+  hardLimitAmps: number;
   cabinetIds: string[];
   watts: PowerProfile;
   amps: PowerProfile;
-  breakerAmps: number;
-  deratedAmps: number;
-  overLimit: boolean;
+  overPlanning: boolean;
+  overHardLimit: boolean;
 }
 
 export interface PowerPlanResult {
-  sourceType: PowerSourceType;
-  voltage: VoltageType;
-  circuits: CircuitLoad[];
-  totalWatts: PowerProfile;
-  totalAmps: PowerProfile;
+  strategy: PowerStrategy;
+  voltageMode: VoltageMode;
+  groupingMode: CircuitGroupingMode;
+  thresholdPlanningPercent: number;
+  thresholdHardLimitPercent: number;
+  circuits: PowerCircuit[];
+  totalsWatts: PowerProfile;
+  totalsAmps: PowerProfile;
+  estimatedCircuitCount: number;
+  socapexRunsRequired: number;
+  socapexCircuitsUsed: number;
+  warnings: string[];
 }
 
 export interface ThemeSettings {
@@ -127,4 +224,10 @@ export interface ThemeSettings {
   mutedTextColor: string;
   fontFamily: string;
   logoDataUrl?: string | null;
+}
+
+export interface WallBundle {
+  wall: Wall;
+  cells: WallCell[];
+  show: ShowEvent;
 }

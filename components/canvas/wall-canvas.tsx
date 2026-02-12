@@ -1,129 +1,266 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
-import { DataPlanResult, PanelVariant, PowerPlanResult, Wall } from "@/lib/domain/types";
+import { CabinetVariant, DataPlanResult, PowerPlanResult, Wall, WallCell } from "@/lib/domain/types";
 
 interface Props {
   wall: Wall;
-  panelMap: Record<string, PanelVariant>;
-  dataPlan?: DataPlanResult | null;
-  powerPlan?: PowerPlanResult | null;
-  selectedCabinetId?: string | null;
-  onSelectCabinet?: (id: string) => void;
+  cells: WallCell[];
+  variantsById: Record<string, CabinetVariant>;
+  dataPlan?: DataPlanResult;
+  powerPlan?: PowerPlanResult;
+  selectedCellId?: string | null;
+  showLabels: boolean;
+  showMeasurements: boolean;
+  showDataLayer: boolean;
+  showPowerLayer: boolean;
+  onSelectCell?: (cellId: string | null) => void;
+  onGridClick?: (unitX: number, unitY: number) => void;
 }
 
-const STAGE_WIDTH = 1024;
-const STAGE_HEIGHT = 720;
-const PADDING = 40;
+const STAGE_WIDTH = 1120;
+const STAGE_HEIGHT = 760;
+const FRAME_PADDING = 70;
 
-const variantColors: Record<string, string> = {
-  P500x500: "#0EA5E9",
-  P500x1000: "#22C55E"
+const STATUS_COLOR: Record<WallCell["status"], string> = {
+  active: "#0EA5E9",
+  spare: "#9CA3AF",
+  void: "#1E293B",
+  cutout: "#3F3F46"
 };
 
-export function WallCanvas({ wall, panelMap, dataPlan, powerPlan, selectedCabinetId, onSelectCabinet }: Props) {
-  const { cellSize, wallPixelWidth, wallPixelHeight } = useMemo(() => {
-    const cellByWidth = (STAGE_WIDTH - PADDING * 2) / wall.widthUnits;
-    const cellByHeight = (STAGE_HEIGHT - PADDING * 2) / wall.heightUnits;
-    const cellSize = Math.floor(Math.max(12, Math.min(cellByWidth, cellByHeight)));
+function cabinetCenter(cell: WallCell, originX: number, originY: number, size: number) {
+  return {
+    x: originX + (cell.unitX + cell.unitWidth / 2) * size,
+    y: originY + (cell.unitY + cell.unitHeight / 2) * size
+  };
+}
 
-    return {
-      cellSize,
-      wallPixelWidth: wall.widthUnits * cellSize,
-      wallPixelHeight: wall.heightUnits * cellSize
-    };
+export function WallCanvas({
+  wall,
+  cells,
+  variantsById,
+  dataPlan,
+  powerPlan,
+  selectedCellId,
+  showLabels,
+  showMeasurements,
+  showDataLayer,
+  showPowerLayer,
+  onSelectCell,
+  onGridClick
+}: Props) {
+  const fitCell = useMemo(() => {
+    const byWidth = (STAGE_WIDTH - FRAME_PADDING * 2) / Math.max(1, wall.widthUnits);
+    const byHeight = (STAGE_HEIGHT - FRAME_PADDING * 2) / Math.max(1, wall.heightUnits);
+    return Math.max(12, Math.floor(Math.min(byWidth, byHeight)));
   }, [wall.heightUnits, wall.widthUnits]);
 
-  const startX = (STAGE_WIDTH - wallPixelWidth) / 2;
-  const startY = (STAGE_HEIGHT - wallPixelHeight) / 2;
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [wall.id]);
+
+  const cellSize = fitCell * zoom;
+  const wallPixelWidth = wall.widthUnits * cellSize;
+  const wallPixelHeight = wall.heightUnits * cellSize;
+
+  const originX = (STAGE_WIDTH - wallPixelWidth) / 2;
+  const originY = (STAGE_HEIGHT - wallPixelHeight) / 2;
+
+  const activeCellMap = useMemo(() => {
+    const map = new Map<string, WallCell>();
+    cells.forEach((cell) => map.set(cell.id, cell));
+    return map;
+  }, [cells]);
+
+  const variantColors = useMemo(() => {
+    const colorPool = ["#38BDF8", "#22C55E", "#F59E0B", "#F43F5E", "#A855F7", "#14B8A6"];
+    const map = new Map<string, string>();
+    let idx = 0;
+    Object.keys(variantsById).forEach((id) => {
+      map.set(id, colorPool[idx % colorPool.length]);
+      idx += 1;
+    });
+    return map;
+  }, [variantsById]);
 
   return (
     <div className="canvas-shell">
-      <Stage width={STAGE_WIDTH} height={STAGE_HEIGHT}>
+      <div className="header-actions" style={{ marginBottom: "0.5rem" }}>
+        <button className="btn btn-secondary btn-small" type="button" onClick={() => setZoom((current) => Math.max(0.5, round(current - 0.1)))}>
+          Zoom -
+        </button>
+        <button className="btn btn-secondary btn-small" type="button" onClick={() => setZoom((current) => Math.min(2.5, round(current + 0.1)))}>
+          Zoom +
+        </button>
+        <button className="btn btn-secondary btn-small" type="button" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
+          Reset View
+        </button>
+      </div>
+
+      <Stage
+        width={STAGE_WIDTH}
+        height={STAGE_HEIGHT}
+        onMouseDown={(event) => {
+          const target = event.target;
+          if (target.getClassName() !== "Rect" || target.name() !== "grid-background") {
+            return;
+          }
+
+          const stage = target.getStage();
+          const pointer = stage?.getPointerPosition();
+          if (!pointer) {
+            return;
+          }
+
+          const localX = (pointer.x - (originX + pan.x)) / cellSize;
+          const localY = (pointer.y - (originY + pan.y)) / cellSize;
+          const unitX = Math.floor(localX);
+          const unitY = Math.floor(localY);
+
+          if (unitX < 0 || unitY < 0 || unitX >= wall.widthUnits || unitY >= wall.heightUnits) {
+            return;
+          }
+
+          onGridClick?.(unitX, unitY);
+        }}
+      >
         <Layer>
-          <Rect
-            x={startX}
-            y={startY}
-            width={wallPixelWidth}
-            height={wallPixelHeight}
-            stroke="#475569"
-            strokeWidth={2}
-            fill="#0A0F18"
-          />
-
-          {Array.from({ length: wall.widthUnits + 1 }, (_, index) => (
-            <Line
-              key={`gx-${index}`}
-              points={[startX + index * cellSize, startY, startX + index * cellSize, startY + wallPixelHeight]}
-              stroke="#1F2937"
-              strokeWidth={1}
+          <Group
+            x={pan.x}
+            y={pan.y}
+            draggable
+            onDragEnd={(event) => setPan({ x: event.target.x(), y: event.target.y() })}
+          >
+            <Rect
+              name="grid-background"
+              x={originX}
+              y={originY}
+              width={wallPixelWidth}
+              height={wallPixelHeight}
+              fill="#050A12"
+              stroke="#475569"
+              strokeWidth={2}
             />
-          ))}
 
-          {Array.from({ length: wall.heightUnits + 1 }, (_, index) => (
-            <Line
-              key={`gy-${index}`}
-              points={[startX, startY + index * cellSize, startX + wallPixelWidth, startY + index * cellSize]}
-              stroke="#1F2937"
-              strokeWidth={1}
-            />
-          ))}
+            {Array.from({ length: wall.widthUnits + 1 }, (_, index) => (
+              <Line
+                key={`grid-x-${index}`}
+                points={[originX + index * cellSize, originY, originX + index * cellSize, originY + wallPixelHeight]}
+                stroke="#1F2937"
+                strokeWidth={1}
+              />
+            ))}
 
-          {wall.cabinets.map((cabinet) => {
-            const panel = panelMap[cabinet.panelVariantId];
-            const isSelected = cabinet.id === selectedCabinetId;
+            {Array.from({ length: wall.heightUnits + 1 }, (_, index) => (
+              <Line
+                key={`grid-y-${index}`}
+                points={[originX, originY + index * cellSize, originX + wallPixelWidth, originY + index * cellSize]}
+                stroke="#1F2937"
+                strokeWidth={1}
+              />
+            ))}
 
-            return (
-              <Group key={cabinet.id} onClick={() => onSelectCabinet?.(cabinet.id)}>
-                <Rect
-                  x={startX + cabinet.x * cellSize + 1}
-                  y={startY + cabinet.y * cellSize + 1}
-                  width={cabinet.unitWidth * cellSize - 2}
-                  height={cabinet.unitHeight * cellSize - 2}
-                  fill={variantColors[cabinet.panelVariantId] ?? "#64748B"}
-                  opacity={0.8}
-                  stroke={isSelected ? "#F59E0B" : "#E2E8F0"}
-                  strokeWidth={isSelected ? 3 : 1}
-                  cornerRadius={2}
+            {cells.map((cell) => {
+              const variant = cell.variantId ? variantsById[cell.variantId] : undefined;
+              const fillColor =
+                cell.status === "active" && cell.variantId
+                  ? variantColors.get(cell.variantId) ?? STATUS_COLOR.active
+                  : STATUS_COLOR[cell.status];
+
+              const selected = selectedCellId === cell.id;
+
+              return (
+                <Group key={cell.id}>
+                  <Rect
+                    x={originX + cell.unitX * cellSize + 1}
+                    y={originY + cell.unitY * cellSize + 1}
+                    width={cell.unitWidth * cellSize - 2}
+                    height={cell.unitHeight * cellSize - 2}
+                    fill={fillColor}
+                    opacity={cell.status === "active" ? 0.88 : 0.45}
+                    stroke={selected ? "#FACC15" : "#E2E8F0"}
+                    strokeWidth={selected ? 3 : 1}
+                    onClick={() => onSelectCell?.(cell.id)}
+                  />
+
+                  {showLabels ? (
+                    <Text
+                      x={originX + cell.unitX * cellSize + 3}
+                      y={originY + cell.unitY * cellSize + 3}
+                      width={cell.unitWidth * cellSize - 6}
+                      text={`${cell.label}${variant ? `\n${variant.variantName}` : `\n${cell.status.toUpperCase()}`}`}
+                      fill="#F8FAFC"
+                      fontSize={Math.max(9, Math.floor(11 * zoom))}
+                    />
+                  ) : null}
+                </Group>
+              );
+            })}
+
+            {showDataLayer && dataPlan
+              ? dataPlan.runs.map((run) => {
+                  const anchor = run.cabinetIds.length ? activeCellMap.get(run.cabinetIds[0]) : null;
+                  if (!anchor) {
+                    return null;
+                  }
+
+                  const center = cabinetCenter(anchor, originX, originY, cellSize);
+                  return (
+                    <Group key={`data-run-${run.runNumber}`}>
+                      <Line points={[originX + wallPixelWidth + 16, center.y, center.x, center.y]} stroke="#3B82F6" strokeWidth={2} />
+                      <Text x={originX + wallPixelWidth + 20} y={center.y - 8} text={`D${run.runNumber}`} fill="#60A5FA" fontSize={10} />
+                    </Group>
+                  );
+                })
+              : null}
+
+            {showPowerLayer && powerPlan
+              ? powerPlan.circuits.map((circuit) => {
+                  const anchor = circuit.cabinetIds.length ? activeCellMap.get(circuit.cabinetIds[0]) : null;
+                  if (!anchor) {
+                    return null;
+                  }
+                  const center = cabinetCenter(anchor, originX, originY, cellSize);
+                  return (
+                    <Group key={`power-${circuit.circuitNumber}`}>
+                      <Line points={[originX - 16, center.y, center.x, center.y]} stroke="#F97316" strokeWidth={2} />
+                      <Text x={originX - 62} y={center.y - 8} text={`P${circuit.circuitNumber}`} fill="#FB923C" fontSize={10} />
+                    </Group>
+                  );
+                })
+              : null}
+
+            {showMeasurements ? (
+              <>
+                <Text
+                  x={originX}
+                  y={originY - 24}
+                  text={`W: ${(wall.widthUnits * wall.baseUnitWidthMm) / 1000}m / ${(wall.widthUnits * wall.baseUnitWidthMm * 0.00328084).toFixed(2)}ft`}
+                  fill="#CBD5E1"
+                  fontSize={12}
                 />
                 <Text
-                  x={startX + cabinet.x * cellSize + 4}
-                  y={startY + cabinet.y * cellSize + 4}
-                  text={`${cabinet.label}\n${panel?.name ?? cabinet.panelVariantId}`}
-                  fill="#F8FAFC"
-                  fontSize={11}
-                  width={cabinet.unitWidth * cellSize - 8}
+                  x={originX + wallPixelWidth + 6}
+                  y={originY + 4}
+                  text={`H: ${(wall.heightUnits * wall.baseUnitHeightMm) / 1000}m / ${(wall.heightUnits * wall.baseUnitHeightMm * 0.00328084).toFixed(2)}ft`}
+                  fill="#CBD5E1"
+                  fontSize={12}
                 />
-              </Group>
-            );
-          })}
-
-          {dataPlan?.blocks.map((block, index) => {
-            const x = startX + wallPixelWidth + 8;
-            const y = startY + ((block.rowStart + block.rowEnd + 1) / 2) * cellSize;
-
-            return (
-              <Group key={`data-${index}`}>
-                <Line points={[x, y, startX + wallPixelWidth - 4, y]} stroke="#F97316" strokeWidth={2} pointerLength={6} />
-                <Text x={x + 10} y={y - 8} text={`P${block.portIndex + 1}`} fill="#F97316" fontSize={11} />
-              </Group>
-            );
-          })}
-
-          {powerPlan?.circuits.map((circuit, index) => {
-            const x = startX - 10;
-            const y = startY + ((index + 0.5) / powerPlan.circuits.length) * wallPixelHeight;
-
-            return (
-              <Group key={`power-${circuit.circuitNumber}`}>
-                <Line points={[x, y, startX + 4, y]} stroke="#22C55E" strokeWidth={2} pointerLength={6} />
-                <Text x={x - 55} y={y - 8} text={`C${circuit.circuitNumber}`} fill="#22C55E" fontSize={11} />
-              </Group>
-            );
-          })}
+              </>
+            ) : null}
+          </Group>
         </Layer>
       </Stage>
     </div>
   );
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
 }

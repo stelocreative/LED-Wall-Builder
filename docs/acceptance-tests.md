@@ -1,36 +1,50 @@
-# Acceptance Test Checklist
+# Acceptance Tests (Touring Workflow)
 
-## Mixed Cabinet Rendering
-- [ ] Create wall with mixed mode enabled.
-- [ ] Confirm 500x1000 cabinets render as 1x2 rectangles in canvas (not square).
-- [ ] Convert selected cabinet from 500x500 to 500x1000 and verify overlap guard.
-- [ ] Confirm mixed and uniform rebuild actions both work.
+## 1) 500x1000-only Wall Build
+- [ ] Open `/walls/new`.
+- [ ] Build wall using only a 500x1000 variant.
+- [ ] Confirm grid occupancy is 1x2 units per cabinet.
+- [ ] Confirm wall size shown in meters and feet.
+- [ ] Open print page and PDF; confirm dimensions and voltage mode are shown.
 
-## Block Consistency / Data Plan
-- [ ] Select processor and receiving card (`A8s` then `A10s`) and verify block allocations update.
-- [ ] Confirm data plan allocates full row blocks only (no partial-row splits).
-- [ ] Confirm rigging mode switches cable origin labels between ground and air.
-- [ ] Confirm loom bundle and port group indices update when sizes change.
+## 2) Mixed Cabinet Composite Wall
+- [ ] Base grid = 500x500.
+- [ ] Place a mix of 500x500 and 500x1000.
+- [ ] Confirm no overlap and snap alignment.
+- [ ] Confirm totals update correctly:
+  - [ ] Physical dimensions (m/ft)
+  - [ ] Resolution + total pixels
+  - [ ] Weight by variant + total
+  - [ ] Power min/typ/max/peak by variant + total
 
-## Voltage + Power Math
-- [ ] Toggle voltage 120V/208V and verify amps recalc (`A = W / V`).
-- [ ] Switch source type between 20A / SOCAPEX / L21-30 and verify circuit counts.
-- [ ] Confirm each circuit shows min/typ/max/peak and over-limit status.
-- [ ] Confirm total min/typ/max/peak W and A shown.
+## 3) Voltage Mode Flip
+- [ ] Toggle wall voltage mode 120V -> 208V.
+- [ ] Confirm power amps decrease at 208V for same watts.
+- [ ] Confirm estimated circuit counts update.
+- [ ] Switch strategy to Socapex and confirm soca run/circuit counts update.
 
-## IMAG Mirroring
-- [ ] Set wall role to mirror and link a master wall.
-- [ ] Enable mirrored port order and verify reversed port mapping in data plan.
-- [ ] Enable mirrored circuit mapping and verify reversed circuit numbering in power plan.
-- [ ] Disable both toggles and verify master order is preserved.
+## 4) Circuit Threshold Behavior
+- [ ] Set planning threshold to 80% and hard limit 100%.
+- [ ] Confirm circuits show planning/hard warnings when exceeded.
+- [ ] Change grouping mode (balanced / min home runs / by section).
+- [ ] Confirm circuit assignments re-balance.
 
-## Theming / Branding
-- [ ] Open Theme & Branding admin page.
-- [ ] Change primary/accent/background/text colors and save.
-- [ ] Confirm UI updates globally (forms remain readable on dark theme).
-- [ ] Upload logo and verify it appears in print view and PDF output.
+## 5) Data Path Output
+- [ ] Generate runs with snake rows.
+- [ ] Switch to snake columns.
+- [ ] Confirm run table updates port assignments, jumper count, and home run estimates.
+- [ ] Confirm run warnings appear when processor/receiving-card limits are exceeded.
 
-## Print / PDF
-- [ ] Open print page and verify title block, totals, data/power tables, revision notes.
-- [ ] Trigger browser print and verify printable layout.
-- [ ] Open `/api/walls/:id/pdf` and verify generated PDF contains branded title and planning tables.
+## 6) Library Expansion
+- [ ] Add a new panel family.
+- [ ] Add a new cabinet variant with full specs.
+- [ ] Add a new processor model.
+- [ ] Confirm new models are selectable in wall creation and designer.
+- [ ] Upload a variant JSON file and confirm new variants appear.
+
+## 7) Print/PDF Deliverable Quality
+- [ ] Title block includes show/date/venue/wall/deployment/voltage/revision.
+- [ ] Summary includes m/ft dimensions, cabinet totals, mixed breakdown.
+- [ ] Power totals show min/typ/max/peak W and A at selected voltage.
+- [ ] Data run table and power circuit table render correctly.
+- [ ] Warnings/notes section includes overload alerts.

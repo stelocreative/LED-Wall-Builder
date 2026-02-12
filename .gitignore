@@ -10,3 +10,9 @@ pnpm-debug.log*
 out
 coverage
 supabase/.temp
+# Local duplicate scratch copies created by Finder/TextEdit conflict workflows
+* 2.tsx
+* 2.ts
+* 2.md
+* 2.css
+* 2.sql
