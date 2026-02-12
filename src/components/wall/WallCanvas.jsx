@@ -9,6 +9,11 @@ const CELL_COLORS = {
   cutout: 'bg-transparent border-dashed border-slate-600',
 };
 
+const DATA_PATH_COLOR = '#facc15';
+const DATA_PATH_OUTLINE = '#0f172a';
+const DATA_PATH_STROKE = 3.5;
+const DATA_PATH_OUTLINE_STROKE = 6.5;
+
 export default function WallCanvas({ 
   gridCols, 
   gridRows, 
@@ -252,14 +257,26 @@ export default function WallCanvas({
             : `${x1},${y1} ${x2},${y1} ${x2},${y2}`;
 
         segments.push(
-          <polyline
-            key={`data-${runIndex}-${pointIndex}`}
-            points={points}
-            fill="none"
-            stroke="#3b82f6"
-            strokeWidth="2"
-            markerEnd="url(#arrowhead-blue)"
-          />
+          <g key={`data-${runIndex}-${pointIndex}`}>
+            <polyline
+              points={points}
+              fill="none"
+              stroke={DATA_PATH_OUTLINE}
+              strokeWidth={DATA_PATH_OUTLINE_STROKE}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.95"
+            />
+            <polyline
+              points={points}
+              fill="none"
+              stroke={DATA_PATH_COLOR}
+              strokeWidth={DATA_PATH_STROKE}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              markerEnd="url(#arrowhead-data)"
+            />
+          </g>
         );
       });
     });
@@ -269,8 +286,8 @@ export default function WallCanvas({
     return (
       <svg className="absolute inset-0 pointer-events-none" style={{ overflow: 'visible' }}>
         <defs>
-          <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+          <marker id="arrowhead-data" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
+            <polygon points="0 0, 14 5, 0 10" fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth="0.9" />
           </marker>
         </defs>
         {segments}

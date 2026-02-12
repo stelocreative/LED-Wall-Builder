@@ -6,6 +6,11 @@ import {
   parsePortIndex
 } from '@/lib/processor-catalog';
 
+const DATA_PATH_COLOR = '#f59e0b';
+const DATA_PATH_OUTLINE = '#111827';
+const DATA_PATH_STROKE = 3;
+const DATA_PATH_OUTLINE_STROKE = 5;
+
 const DeploymentSheet = forwardRef(({ 
   show, 
   wall, 
@@ -349,22 +354,34 @@ const DeploymentSheet = forwardRef(({
                       : `${x1},${y1} ${x2},${y1} ${x2},${y2}`;
                   
                   return (
-                    <polyline
-                      key={`${runIdx}-${pIdx}`}
-                      points={points}
-                      fill="none"
-                      stroke="#3b82f6"
-                      strokeWidth="2"
-                      markerEnd="url(#arrow)"
-                    />
+                    <g key={`${runIdx}-${pIdx}`}>
+                      <polyline
+                        points={points}
+                        fill="none"
+                        stroke={DATA_PATH_OUTLINE}
+                        strokeWidth={DATA_PATH_OUTLINE_STROKE}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity="0.9"
+                      />
+                      <polyline
+                        points={points}
+                        fill="none"
+                        stroke={DATA_PATH_COLOR}
+                        strokeWidth={DATA_PATH_STROKE}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        markerEnd="url(#arrow)"
+                      />
+                    </g>
                   );
                 });
               })}
             </g>
             
             <defs>
-              <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+              <marker id="arrow" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
+                <polygon points="0 0, 14 5, 0 10" fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth="0.9" />
               </marker>
             </defs>
           </svg>
@@ -381,7 +398,7 @@ const DeploymentSheet = forwardRef(({
             <span>Spare</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-0.5 bg-blue-500"></div>
+            <div className="w-8 h-1 rounded bg-amber-500 border border-gray-900"></div>
             <span>Data Path</span>
           </div>
         </div>
