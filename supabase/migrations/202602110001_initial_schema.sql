@@ -1,9 +1,28 @@
 create extension if not exists pgcrypto;
 
-create type rigging_mode as enum ('ground', 'flown');
-create type rack_location as enum ('SL', 'SR', 'USC', 'FOH');
-create type imag_role as enum ('none', 'master', 'mirror');
-create type power_source as enum ('20A', 'SOCAPEX', 'L21-30');
+DO $$ BEGIN
+  CREATE TYPE rigging_mode AS ENUM ('ground', 'flown');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE rack_location AS ENUM ('SL', 'SR', 'USC', 'FOH');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE imag_role AS ENUM ('none', 'master', 'mirror');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE power_source AS ENUM ('20A', 'SOCAPEX', 'L21-30');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 create table if not exists panel_variants (
   id text primary key,
