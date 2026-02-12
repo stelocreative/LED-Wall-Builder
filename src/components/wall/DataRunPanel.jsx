@@ -342,6 +342,20 @@ export default function DataRunPanel({
     }
   };
 
+  const clearAllRuns = () => {
+    if (!dataRuns.length) return;
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Clear all data runs? This removes all manual and auto-routed paths.');
+      if (!confirmed) return;
+    }
+    onDataRunsChange([]);
+    onActiveRunChange?.(null);
+    toast({
+      title: "Data runs cleared",
+      description: "All data routes were removed."
+    });
+  };
+
   const totalJumpers = dataRuns.reduce((acc, run) => {
     return acc + Math.max(0, (run.path?.length || 0) - 1);
   }, 0);
@@ -480,9 +494,21 @@ export default function DataRunPanel({
         )}
 
         <div className="grid grid-cols-1 gap-2">
-          <Button size="sm" onClick={addRun} className="w-full bg-slate-700 hover:bg-slate-600">
-            <Plus className="w-4 h-4 mr-1" /> Add Run
-          </Button>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <Button size="sm" onClick={addRun} className="w-full bg-slate-700 hover:bg-slate-600">
+              <Plus className="w-4 h-4 mr-1" /> Add Run
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={clearAllRuns}
+              disabled={!dataRuns.length}
+              title="Clear all runs"
+              className="border-red-700/70 text-red-300 hover:bg-red-900/30 hover:text-red-200"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Button size="sm" onClick={autoSnake} variant="outline" className="w-full gap-1">
               <Wand2 className="w-4 h-4" /> Snake

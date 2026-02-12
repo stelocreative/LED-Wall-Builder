@@ -90,6 +90,16 @@ export default function PowerPlanPanel({
     }
   };
 
+  const clearAllCircuits = () => {
+    if (!powerPlan.length) return;
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Clear all power circuits? This removes all circuit assignments.');
+      if (!confirmed) return;
+    }
+    onPowerPlanChange([]);
+    onActiveCircuitChange?.(null);
+  };
+
   const getPowerOrderedLayout = (entrySide) => {
     const rackLocation = wall?.rack_location || 'SL';
     const preferLeftToRight = rackLocation !== 'SR';
@@ -265,12 +275,22 @@ export default function PowerPlanPanel({
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Button size="sm" onClick={addCircuit} className="flex-1 bg-slate-700 hover:bg-slate-600">
+        <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+          <Button size="sm" onClick={addCircuit} className="bg-slate-700 hover:bg-slate-600">
             <Plus className="w-4 h-4 mr-1" /> Add Circuit
           </Button>
           <Button size="sm" onClick={autoAssign} variant="outline" className="gap-1">
             <Wand2 className="w-4 h-4" /> Auto
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={clearAllCircuits}
+            disabled={!powerPlan.length}
+            title="Clear all circuits"
+            className="border-red-700/70 text-red-300 hover:bg-red-900/30 hover:text-red-200"
+          >
+            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
 
