@@ -230,8 +230,8 @@ export default function Shows() {
     setShowDialog(true);
   };
 
-  const safeShows = Array.isArray(shows) ? shows : [];
-  const safeWalls = Array.isArray(walls) ? walls : [];
+  const safeShows = Array.isArray(shows) ? shows.filter((item) => item && typeof item === 'object') : [];
+  const safeWalls = Array.isArray(walls) ? walls.filter((item) => item && typeof item === 'object') : [];
   const searchNeedle = searchTerm.toLowerCase();
   const filteredShows = safeShows.filter(s => 
     includesIgnoreCase(s?.name, searchNeedle) ||
@@ -357,29 +357,32 @@ export default function Shows() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredShows.map(show => {
-            const showWalls = safeWalls.filter(w => w.show_id === show.id);
+          {filteredShows.map((show, index) => {
+            const persistedShowId = show?.id ?? show?._id ?? null;
+            const showId = persistedShowId ?? `row-${index}`;
+            const showWalls = safeWalls.filter(w => w?.show_id === persistedShowId);
             return (
-              <Card key={show.id} className="bg-slate-800 border-slate-700 group hover:border-slate-600 transition-colors">
+              <Card key={showId} className="bg-slate-800 border-slate-700 group hover:border-slate-600 transition-colors">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge className={statusColors[show.status || 'draft']}>
+                        <Badge className={statusColors[normalizeStatus(show?.status)] || statusColors.draft}>
                           {formatStatusLabel(show.status)}
                         </Badge>
-                        {show.revision > 1 && (
+                        {Number(show?.revision) > 1 && (
                           <Badge variant="outline" className="text-xs">Rev {show.revision}</Badge>
                         )}
                       </div>
-                      <CardTitle className="text-white text-lg">{show.name}</CardTitle>
+                      <CardTitle className="text-white text-lg">{show?.name || 'Untitled Show'}</CardTitle>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button 
                         size="icon" 
                         variant="ghost" 
                         className="h-8 w-8"
-                        onClick={(e) => { e.preventDefault(); openEditDialog(show); }}
+                        disabled={!persistedShowId}
+                        onClick={(e) => { e.preventDefault(); if (persistedShowId) openEditDialog(show); }}
                       >
                         <Edit2 className="w-4 h-4" />
                       </Button>
@@ -387,7 +390,8 @@ export default function Shows() {
                         size="icon" 
                         variant="ghost" 
                         className="h-8 w-8 text-red-400 hover:text-red-300"
-                        onClick={(e) => { e.preventDefault(); deleteShow.mutate(show.id); }}
+                        disabled={!persistedShowId}
+                        onClick={(e) => { e.preventDefault(); if (persistedShowId) deleteShow.mutate(persistedShowId); }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -414,12 +418,18 @@ export default function Shows() {
                     </div>
                   </div>
                   
-                  <Link to={createPageUrl(`ShowDetail?id=${show.id}`)}>
-                    <Button variant="outline" className="w-full group-hover:bg-slate-700">
-                      Open Show
-                      <ChevronRight className="w-4 h-4 ml-2" />
+                  {persistedShowId ? (
+                    <Link to={createPageUrl(`ShowDetail?id=${showId}`)}>
+                      <Button variant="outline" className="w-full group-hover:bg-slate-700">
+                        Open Show
+                        <ChevronRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button variant="outline" className="w-full" disabled>
+                      Missing Show ID
                     </Button>
-                  </Link>
+                  )}
                 </CardContent>
               </Card>
             );
