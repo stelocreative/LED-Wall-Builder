@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -27,6 +27,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
 export default function ShowDetail() {
   const queryClient = useQueryClient();
@@ -61,15 +62,18 @@ export default function ShowDetail() {
     enabled: !!showId
   });
 
-  const { data: cabinets = [] } = useQuery({
+  const { data: remoteCabinets = [] } = useQuery({
     queryKey: ['cabinetVariants'],
     queryFn: () => base44.entities.CabinetVariant.list()
   });
 
-  const { data: families = [] } = useQuery({
+  const { data: remoteFamilies = [] } = useQuery({
     queryKey: ['panelFamilies'],
     queryFn: () => base44.entities.PanelFamily.list()
   });
+
+  const families = useMemo(() => mergeFamiliesWithPopular(remoteFamilies), [remoteFamilies]);
+  const cabinets = useMemo(() => mergeVariantsWithPopular(remoteCabinets, families), [remoteCabinets, families]);
 
   const createWall = useMutation({
     mutationFn: (data) => base44.entities.Wall.create({ ...data, show_id: showId }),

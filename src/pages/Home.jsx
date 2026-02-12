@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -16,6 +16,7 @@ import {
   Weight,
   Grid3X3
 } from 'lucide-react';
+import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
 export default function Home() {
   const { data: shows = [] } = useQuery({
@@ -28,15 +29,18 @@ export default function Home() {
     queryFn: () => base44.entities.Wall.list()
   });
 
-  const { data: cabinets = [] } = useQuery({
+  const { data: remoteCabinets = [] } = useQuery({
     queryKey: ['cabinetVariants'],
     queryFn: () => base44.entities.CabinetVariant.list()
   });
 
-  const { data: families = [] } = useQuery({
+  const { data: remoteFamilies = [] } = useQuery({
     queryKey: ['panelFamilies'],
     queryFn: () => base44.entities.PanelFamily.list()
   });
+
+  const families = useMemo(() => mergeFamiliesWithPopular(remoteFamilies), [remoteFamilies]);
+  const cabinets = useMemo(() => mergeVariantsWithPopular(remoteCabinets, families), [remoteCabinets, families]);
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">

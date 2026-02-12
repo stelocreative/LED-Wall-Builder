@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -11,14 +11,10 @@ import CabinetCard from '../components/library/CabinetCard';
 import CabinetForm from '../components/library/CabinetForm';
 import FamilyForm from '../components/library/FamilyForm';
 import {
-  POPULAR_CABINET_VARIANTS,
-  POPULAR_PANEL_FAMILIES,
-  familyLookupKey
+  isPopularId,
+  mergeFamiliesWithPopular,
+  mergeVariantsWithPopular
 } from '@/lib/popular-catalog';
-
-function normalize(text) {
-  return String(text || '').trim().toLowerCase();
-}
 
 export default function CabinetLibrary() {
   const queryClient = useQueryClient();
@@ -29,15 +25,18 @@ export default function CabinetLibrary() {
   const [editingCabinet, setEditingCabinet] = useState(null);
   const [seedMessage, setSeedMessage] = useState('');
 
-  const { data: families = [] } = useQuery({
+  const { data: remoteFamilies = [] } = useQuery({
     queryKey: ['panelFamilies'],
     queryFn: () => base44.entities.PanelFamily.list()
   });
 
-  const { data: cabinets = [] } = useQuery({
+  const { data: remoteCabinets = [] } = useQuery({
     queryKey: ['cabinetVariants'],
     queryFn: () => base44.entities.CabinetVariant.list()
   });
+
+  const families = useMemo(() => mergeFamiliesWithPopular(remoteFamilies), [remoteFamilies]);
+  const cabinets = useMemo(() => mergeVariantsWithPopular(remoteCabinets, families), [remoteCabinets, families]);
 
   const createFamily = useMutation({
     mutationFn: (data) => base44.entities.PanelFamily.create(data),
@@ -86,58 +85,9 @@ export default function CabinetLibrary() {
   });
 
   const seedPopularCatalog = useMutation({
-    mutationFn: async () => {
-      const freshFamilies = await base44.entities.PanelFamily.list();
-      const familyMap = new Map(
-        freshFamilies.map((family) => [familyLookupKey(family.manufacturer, family.family_name), family])
-      );
-
-      let createdFamilies = 0;
-      for (const seedFamily of POPULAR_PANEL_FAMILIES) {
-        const lookup = familyLookupKey(seedFamily.manufacturer, seedFamily.family_name);
-        if (familyMap.has(lookup)) {
-          continue;
-        }
-        const created = await base44.entities.PanelFamily.create(seedFamily);
-        familyMap.set(lookup, created);
-        createdFamilies += 1;
-      }
-
-      const freshVariants = await base44.entities.CabinetVariant.list();
-      const variantKeys = new Set(
-        freshVariants.map((variant) => `${variant.panel_family_id}::${normalize(variant.variant_name)}`)
-      );
-
-      let createdVariants = 0;
-      for (const seedVariant of POPULAR_CABINET_VARIANTS) {
-        const family = familyMap.get(seedVariant.familyKey);
-        if (!family?.id) {
-          continue;
-        }
-        const variantKey = `${family.id}::${normalize(seedVariant.variant.variant_name)}`;
-        if (variantKeys.has(variantKey)) {
-          continue;
-        }
-        await base44.entities.CabinetVariant.create({
-          ...seedVariant.variant,
-          panel_family_id: family.id
-        });
-        variantKeys.add(variantKey);
-        createdVariants += 1;
-      }
-
-      return {
-        createdFamilies,
-        createdVariants
-      };
-    },
-    onSuccess: ({ createdFamilies, createdVariants }) => {
-      queryClient.invalidateQueries(['panelFamilies']);
-      queryClient.invalidateQueries(['cabinetVariants']);
-      setSeedMessage(`Catalog seeded: +${createdFamilies} families, +${createdVariants} variants.`);
-    },
-    onError: (error) => {
-      setSeedMessage(error?.message || 'Unable to seed catalog.');
+    mutationFn: async () => true,
+    onSuccess: () => {
+      setSeedMessage("Popular touring catalog is built in. You can use and edit non-built-in items normally.");
     }
   });
 
@@ -240,27 +190,32 @@ export default function CabinetLibrary() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredCabinets.map(cabinet => {
                 const family = families.find(f => f.id === cabinet.panel_family_id);
+                const builtIn = isPopularId(cabinet.id);
                 return (
                   <div key={cabinet.id} className="relative group">
                     <CabinetCard variant={cabinet} family={family} />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                      <Button 
-                        size="icon" 
-                        variant="secondary" 
-                        className="h-8 w-8"
-                        onClick={() => { setEditingCabinet(cabinet); setShowCabinetForm(true); }}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        variant="destructive" 
-                        className="h-8 w-8"
-                        onClick={() => deleteCabinet.mutate(cabinet.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    {builtIn ? (
+                      <Badge className="absolute top-2 right-2 bg-indigo-600/90">Built-in</Badge>
+                    ) : (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <Button 
+                          size="icon" 
+                          variant="secondary" 
+                          className="h-8 w-8"
+                          onClick={() => { setEditingCabinet(cabinet); setShowCabinetForm(true); }}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          variant="destructive" 
+                          className="h-8 w-8"
+                          onClick={() => deleteCabinet.mutate(cabinet.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -296,6 +251,7 @@ export default function CabinetLibrary() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredFamilies.map(family => {
                 const variantCount = cabinets.filter(c => c.panel_family_id === family.id).length;
+                const builtIn = isPopularId(family.id);
                 return (
                   <Card key={family.id} className="bg-slate-800 border-slate-700 group">
                     <CardHeader className="pb-3">
@@ -304,24 +260,28 @@ export default function CabinetLibrary() {
                           <CardTitle className="text-white">{family.manufacturer}</CardTitle>
                           <p className="text-slate-300">{family.family_name}</p>
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button 
-                            size="icon" 
-                            variant="secondary" 
-                            className="h-8 w-8"
-                            onClick={() => { setEditingFamily(family); setShowFamilyForm(true); }}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="destructive" 
-                            className="h-8 w-8"
-                            onClick={() => deleteFamily.mutate(family.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        {builtIn ? (
+                          <Badge className="bg-indigo-600/90">Built-in</Badge>
+                        ) : (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              size="icon" 
+                              variant="secondary" 
+                              className="h-8 w-8"
+                              onClick={() => { setEditingFamily(family); setShowFamilyForm(true); }}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="destructive" 
+                              className="h-8 w-8"
+                              onClick={() => deleteFamily.mutate(family.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent>

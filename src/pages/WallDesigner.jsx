@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -34,6 +34,7 @@ import CrewChecklistPanel from '../components/wall/CrewChecklistPanel';
 import RevisionPanel from '../components/wall/RevisionPanel';
 import LabelGenerator from '../components/wall/LabelGenerator';
 import CablePullList from '../components/wall/CablePullList';
+import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
 export default function WallDesigner() {
   const queryClient = useQueryClient();
@@ -68,15 +69,18 @@ export default function WallDesigner() {
     enabled: !!wall?.show_id
   });
 
-  const { data: cabinets = [] } = useQuery({
+  const { data: remoteCabinets = [] } = useQuery({
     queryKey: ['cabinetVariants'],
     queryFn: () => base44.entities.CabinetVariant.list()
   });
 
-  const { data: families = [] } = useQuery({
+  const { data: remoteFamilies = [] } = useQuery({
     queryKey: ['panelFamilies'],
     queryFn: () => base44.entities.PanelFamily.list()
   });
+
+  const families = useMemo(() => mergeFamiliesWithPopular(remoteFamilies), [remoteFamilies]);
+  const cabinets = useMemo(() => mergeVariantsWithPopular(remoteCabinets, families), [remoteCabinets, families]);
 
   const [layout, setLayout] = useState([]);
   const [dataRuns, setDataRuns] = useState([]);
