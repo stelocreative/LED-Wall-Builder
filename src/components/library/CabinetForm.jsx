@@ -42,6 +42,12 @@ export default function CabinetForm({ families, variant, family, onSave, onCance
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const labelClass = "mb-1.5 block text-slate-200";
+  const controlClass = "bg-slate-700 border-slate-500 text-slate-100 placeholder:text-slate-400 focus-visible:ring-blue-400/70";
+  const compactControlClass = "bg-slate-600 border-slate-500 text-slate-100 placeholder:text-slate-400 focus-visible:ring-blue-400/70";
+  const tabTriggerClass = "text-slate-300 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-sm";
+  const selectContentClass = "border-slate-600 bg-slate-800 text-slate-100";
+
   const handleSubmit = () => {
     onSave({
       ...formData,
@@ -65,31 +71,36 @@ export default function CabinetForm({ families, variant, family, onSave, onCance
   };
 
   return (
-    <Card className="bg-slate-800 border-slate-700">
+    <Card className="bg-slate-800/95 border-slate-700 shadow-xl shadow-black/20">
       <CardHeader className="pb-4">
         <CardTitle className="text-white flex items-center justify-between">
           {variant?.id ? 'Edit Cabinet Variant' : 'Add Cabinet Variant'}
-          <Button variant="ghost" size="icon" onClick={onCancel}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-slate-300 hover:bg-slate-700 hover:text-white"
+            onClick={onCancel}
+          >
             <X className="w-4 h-4" />
           </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="basic">Basic</TabsTrigger>
-            <TabsTrigger value="power">Power</TabsTrigger>
-            <TabsTrigger value="planning">Planning</TabsTrigger>
+          <TabsList className="grid h-11 grid-cols-3 mb-4 border border-slate-600 bg-slate-700/70 p-1">
+            <TabsTrigger value="basic" className={tabTriggerClass}>Basic</TabsTrigger>
+            <TabsTrigger value="power" className={tabTriggerClass}>Power</TabsTrigger>
+            <TabsTrigger value="planning" className={tabTriggerClass}>Planning</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-4">
+          <TabsContent value="basic" className="space-y-4 pt-1">
             <div>
-              <Label>Panel Family</Label>
+              <Label className={labelClass}>Panel Family</Label>
               <Select value={selectedFamilyId} onValueChange={setSelectedFamilyId}>
-                <SelectTrigger className="bg-slate-700 border-slate-600">
+                <SelectTrigger className={controlClass}>
                   <SelectValue placeholder="Select family" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={selectContentClass}>
                   {families.map(f => (
                     <SelectItem key={f.id} value={f.id}>
                       {f.manufacturer} - {f.family_name}
@@ -100,171 +111,171 @@ export default function CabinetForm({ families, variant, family, onSave, onCance
             </div>
 
             <div>
-              <Label>Variant Name</Label>
+              <Label className={labelClass}>Variant Name</Label>
               <Input 
                 value={formData.variant_name}
                 onChange={(e) => handleChange('variant_name', e.target.value)}
                 placeholder="e.g., 500x500"
-                className="bg-slate-700 border-slate-600"
+                className={controlClass}
               />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label>Width (mm)</Label>
+                <Label className={labelClass}>Width (mm)</Label>
                 <Input 
                   type="number"
                   value={formData.width_mm}
                   onChange={(e) => handleChange('width_mm', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Height (mm)</Label>
+                <Label className={labelClass}>Height (mm)</Label>
                 <Input 
                   type="number"
                   value={formData.height_mm}
                   onChange={(e) => handleChange('height_mm', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Depth (mm)</Label>
+                <Label className={labelClass}>Depth (mm)</Label>
                 <Input 
                   type="number"
                   value={formData.depth_mm}
                   onChange={(e) => handleChange('depth_mm', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Pixel Width</Label>
+                <Label className={labelClass}>Pixel Width</Label>
                 <Input 
                   type="number"
                   value={formData.pixel_width}
                   onChange={(e) => handleChange('pixel_width', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Pixel Height</Label>
+                <Label className={labelClass}>Pixel Height</Label>
                 <Input 
                   type="number"
                   value={formData.pixel_height}
                   onChange={(e) => handleChange('pixel_height', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
             </div>
 
             <div>
-              <Label>Weight (kg)</Label>
+              <Label className={labelClass}>Weight (kg)</Label>
               <Input 
                 type="number"
                 step="0.1"
                 value={formData.weight_kg}
                 onChange={(e) => handleChange('weight_kg', e.target.value)}
-                className="bg-slate-700 border-slate-600"
+                className={controlClass}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Power Connector</Label>
+                <Label className={labelClass}>Power Connector</Label>
                 <Input 
                   value={formData.power_connector}
                   onChange={(e) => handleChange('power_connector', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Data Connector</Label>
+                <Label className={labelClass}>Data Connector</Label>
                 <Input 
                   value={formData.data_connector}
                   onChange={(e) => handleChange('data_connector', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="power" className="space-y-4">
+          <TabsContent value="power" className="space-y-4 pt-1">
             <p className="text-sm text-slate-400 mb-4">Power draw values in Watts</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Min (Idle/Dark)</Label>
+                <Label className={labelClass}>Min (Idle/Dark)</Label>
                 <Input 
                   type="number"
                   value={formData.power_min_w}
                   onChange={(e) => handleChange('power_min_w', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Typical (Touring)</Label>
+                <Label className={labelClass}>Typical (Touring)</Label>
                 <Input 
                   type="number"
                   value={formData.power_typical_w}
                   onChange={(e) => handleChange('power_typical_w', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Max (Continuous)</Label>
+                <Label className={labelClass}>Max (Continuous)</Label>
                 <Input 
                   type="number"
                   value={formData.power_max_w}
                   onChange={(e) => handleChange('power_max_w', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
               <div>
-                <Label>Peak (Surge)</Label>
+                <Label className={labelClass}>Peak (Surge)</Label>
                 <Input 
                   type="number"
                   value={formData.power_peak_w}
                   onChange={(e) => handleChange('power_peak_w', e.target.value)}
-                  className="bg-slate-700 border-slate-600"
+                  className={controlClass}
                 />
               </div>
             </div>
             <div>
-              <Label>Peak Factor (if peak not specified)</Label>
+              <Label className={labelClass}>Peak Factor (if peak not specified)</Label>
               <Input 
                 type="number"
                 step="0.1"
                 value={formData.peak_factor}
                 onChange={(e) => handleChange('peak_factor', e.target.value)}
-                className="bg-slate-700 border-slate-600"
+                className={controlClass}
               />
             </div>
           </TabsContent>
 
-          <TabsContent value="planning" className="space-y-4">
+          <TabsContent value="planning" className="space-y-4 pt-1">
             <p className="text-sm text-slate-400 mb-4">Recommended cabinets per circuit for planning</p>
             <div className="space-y-4">
               <div className="p-3 bg-slate-700/50 rounded-lg">
                 <h4 className="text-sm font-medium text-white mb-3">20A Edison Circuits</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">@ 120V</Label>
+                    <Label className={`${labelClass} text-xs`}>@ 120V</Label>
                     <Input 
                       type="number"
                       value={formData.cabinets_per_20a_120v}
                       onChange={(e) => handleChange('cabinets_per_20a_120v', e.target.value)}
-                      className="bg-slate-600 border-slate-500"
+                      className={compactControlClass}
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">@ 208V</Label>
+                    <Label className={`${labelClass} text-xs`}>@ 208V</Label>
                     <Input 
                       type="number"
                       value={formData.cabinets_per_20a_208v}
                       onChange={(e) => handleChange('cabinets_per_20a_208v', e.target.value)}
-                      className="bg-slate-600 border-slate-500"
+                      className={compactControlClass}
                     />
                   </div>
                 </div>
@@ -274,21 +285,21 @@ export default function CabinetForm({ families, variant, family, onSave, onCance
                 <h4 className="text-sm font-medium text-white mb-3">Socapex Circuits</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">@ 120V</Label>
+                    <Label className={`${labelClass} text-xs`}>@ 120V</Label>
                     <Input 
                       type="number"
                       value={formData.cabinets_per_soco_120v}
                       onChange={(e) => handleChange('cabinets_per_soco_120v', e.target.value)}
-                      className="bg-slate-600 border-slate-500"
+                      className={compactControlClass}
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">@ 208V</Label>
+                    <Label className={`${labelClass} text-xs`}>@ 208V</Label>
                     <Input 
                       type="number"
                       value={formData.cabinets_per_soco_208v}
                       onChange={(e) => handleChange('cabinets_per_soco_208v', e.target.value)}
-                      className="bg-slate-600 border-slate-500"
+                      className={compactControlClass}
                     />
                   </div>
                 </div>
@@ -302,7 +313,13 @@ export default function CabinetForm({ families, variant, family, onSave, onCance
             <Save className="w-4 h-4 mr-2" />
             Save Cabinet
           </Button>
-          <Button variant="outline" onClick={onCancel}>Cancel</Button>
+          <Button
+            variant="outline"
+            className="border-slate-500 bg-slate-700 text-slate-100 hover:bg-slate-600 hover:text-white"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
         </div>
       </CardContent>
     </Card>

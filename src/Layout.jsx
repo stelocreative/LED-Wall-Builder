@@ -49,7 +49,7 @@ export default function Layout({ children, currentPageName }) {
                 <Link key={item.page} to={createPageUrl(item.page)}>
                   <Button 
                     variant={currentPageName === item.page ? 'secondary' : 'ghost'}
-                    className={`gap-2 ${currentPageName === item.page ? 'text-slate-900' : 'text-slate-200 hover:text-white'}`}
+                    className={`gap-2 ${currentPageName === item.page ? 'bg-slate-100 text-slate-900 hover:bg-white' : 'text-slate-200 hover:bg-slate-700 hover:text-white'}`}
                   >
                     <item.icon className="w-4 h-4" />
                     {item.name}
@@ -81,7 +81,7 @@ export default function Layout({ children, currentPageName }) {
               >
                 <Button 
                   variant={currentPageName === item.page ? 'secondary' : 'ghost'}
-                  className={`w-full justify-start gap-2 mb-1 ${currentPageName === item.page ? 'text-slate-900' : 'text-slate-200 hover:text-white'}`}
+                  className={`w-full justify-start gap-2 mb-1 ${currentPageName === item.page ? 'bg-slate-100 text-slate-900 hover:bg-white' : 'text-slate-200 hover:bg-slate-700 hover:text-white'}`}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.name}

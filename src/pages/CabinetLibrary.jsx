@@ -142,7 +142,7 @@ export default function CabinetLibrary() {
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-slate-800 border-slate-700 w-64"
+                className="pl-10 bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-400 w-64"
               />
             </div>
           </div>
@@ -155,12 +155,12 @@ export default function CabinetLibrary() {
         ) : null}
 
         <Tabs defaultValue="cabinets" className="space-y-6">
-          <TabsList className="bg-slate-800">
-            <TabsTrigger value="cabinets" className="gap-2">
+          <TabsList className="h-11 border border-slate-600 bg-slate-700/70 p-1">
+            <TabsTrigger value="cabinets" className="gap-2 text-slate-300 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900">
               <Package className="w-4 h-4" />
               Cabinet Variants
             </TabsTrigger>
-            <TabsTrigger value="families" className="gap-2">
+            <TabsTrigger value="families" className="gap-2 text-slate-300 data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900">
               <Layers className="w-4 h-4" />
               Panel Families
             </TabsTrigger>
