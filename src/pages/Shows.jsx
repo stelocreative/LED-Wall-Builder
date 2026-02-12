@@ -59,6 +59,40 @@ function parseMutationError(error) {
   return details || 'Request failed. Please try again.';
 }
 
+function parseDateSafe(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const asString = String(value).trim();
+  if (!asString) return null;
+
+  const direct = new Date(asString);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  const usMatch = asString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (usMatch) {
+    const month = Number(usMatch[1]) - 1;
+    const day = Number(usMatch[2]);
+    const year = Number(usMatch[3]);
+    const fromUs = new Date(year, month, day);
+    return Number.isNaN(fromUs.getTime()) ? null : fromUs;
+  }
+
+  return null;
+}
+
+function formatDateSafe(value) {
+  const parsed = parseDateSafe(value);
+  if (parsed) {
+    return format(parsed, 'MMM d, yyyy');
+  }
+  return String(value || '');
+}
+
 export default function Shows() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -353,7 +387,7 @@ export default function Shows() {
                     {show.date && (
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        {format(new Date(show.date), 'MMM d, yyyy')}
+                        {formatDateSafe(show.date)}
                       </div>
                     )}
                     {show.venue && (

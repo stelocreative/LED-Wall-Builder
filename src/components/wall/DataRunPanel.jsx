@@ -14,6 +14,18 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+function parseLoomBundlesSafe(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function DataRunPanel({ 
   layout,
   cabinets,
@@ -98,7 +110,7 @@ export default function DataRunPanel({
     });
 
     // Get loom bundles if available
-    const loomBundles = wall?.loom_bundles ? JSON.parse(wall.loom_bundles) : [];
+    const loomBundles = parseLoomBundlesSafe(wall?.loom_bundles);
     
     const runs = Object.entries(columns)
       .sort(([a], [b]) => Number(a) - Number(b))

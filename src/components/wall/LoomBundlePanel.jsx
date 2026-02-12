@@ -33,8 +33,20 @@ const LOOM_PRESETS = {
   'custom': { name: 'Custom', looms: [] }
 };
 
+function parseLoomBundlesSafe(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function LoomBundlePanel({ wall, onWallUpdate }) {
-  const loomBundles = wall?.loom_bundles ? JSON.parse(wall.loom_bundles) : [];
+  const loomBundles = parseLoomBundlesSafe(wall?.loom_bundles);
   const [editingLoom, setEditingLoom] = useState(null);
 
   const applyPreset = (presetKey) => {

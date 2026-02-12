@@ -36,6 +36,18 @@ import LabelGenerator from '../components/wall/LabelGenerator';
 import CablePullList from '../components/wall/CablePullList';
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
+function parseArrayField(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function WallDesigner() {
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
@@ -51,7 +63,7 @@ export default function WallDesigner() {
   const [activePanel, setActivePanel] = useState('cabinets');
   const [showPrintPreview, setShowPrintPreview] = useState(false);
 
-  const { data: wall, isLoading: wallLoading } = useQuery({
+  const { data: wall, isLoading: wallLoading, isError: wallError } = useQuery({
     queryKey: ['wall', wallId],
     queryFn: async () => {
       const walls = await base44.entities.Wall.filter({ id: wallId });
@@ -88,9 +100,9 @@ export default function WallDesigner() {
 
   useEffect(() => {
     if (wall) {
-      setLayout(wall.layout_data ? JSON.parse(wall.layout_data) : []);
-      setDataRuns(wall.data_runs ? JSON.parse(wall.data_runs) : []);
-      setPowerPlan(wall.power_plan ? JSON.parse(wall.power_plan) : []);
+      setLayout(parseArrayField(wall.layout_data));
+      setDataRuns(parseArrayField(wall.data_runs));
+      setPowerPlan(parseArrayField(wall.power_plan));
     }
   }, [wall]);
 
@@ -126,10 +138,44 @@ export default function WallDesigner() {
     updateWall.mutate(data);
   };
 
-  if (wallLoading || !wall) {
+  if (!wallId) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-300 text-lg font-medium">Wall link is missing</p>
+          <p className="text-slate-500 mt-1">Open a wall from a show card to launch the designer.</p>
+          <Link to={createPageUrl('Shows')}>
+            <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Shows
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (wallLoading) {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
         <p className="text-slate-400">Loading wall...</p>
+      </div>
+    );
+  }
+
+  if (wallError || !wall) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-300 text-lg font-medium">Wall not found</p>
+          <p className="text-slate-500 mt-1">The designer link may be invalid or the wall no longer exists.</p>
+          <Link to={createPageUrl('Shows')}>
+            <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Shows
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

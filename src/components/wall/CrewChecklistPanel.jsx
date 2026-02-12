@@ -5,8 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ClipboardCheck, Plus, Trash2 } from 'lucide-react';
 
+function parseChecklistSafe(value) {
+  if (!value) return null;
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function CrewChecklistPanel({ wall, onWallUpdate }) {
-  const checklist = wall?.crew_checklist ? JSON.parse(wall.crew_checklist) : getDefaultChecklist(wall?.deployment_type);
+  const checklist = parseChecklistSafe(wall?.crew_checklist) || getDefaultChecklist(wall?.deployment_type);
   
   function getDefaultChecklist(deploymentType) {
     const baseItems = [

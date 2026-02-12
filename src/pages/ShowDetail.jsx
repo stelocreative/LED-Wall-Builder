@@ -29,6 +29,52 @@ import {
 import { format } from 'date-fns';
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
+function parseDateSafe(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const asString = String(value).trim();
+  if (!asString) return null;
+
+  const direct = new Date(asString);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  const usMatch = asString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (usMatch) {
+    const month = Number(usMatch[1]) - 1;
+    const day = Number(usMatch[2]);
+    const year = Number(usMatch[3]);
+    const fromUs = new Date(year, month, day);
+    return Number.isNaN(fromUs.getTime()) ? null : fromUs;
+  }
+
+  return null;
+}
+
+function formatDateSafe(value) {
+  const parsed = parseDateSafe(value);
+  if (parsed) {
+    return format(parsed, 'MMM d, yyyy');
+  }
+  return String(value || '');
+}
+
+function parseLayoutDataSafe(layoutData) {
+  if (!layoutData) return [];
+  if (Array.isArray(layoutData)) return layoutData;
+  if (typeof layoutData === 'object') return [];
+  try {
+    const parsed = JSON.parse(layoutData);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ShowDetail() {
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
@@ -47,7 +93,7 @@ export default function ShowDetail() {
     grid_rows: 4
   });
 
-  const { data: show } = useQuery({
+  const { data: show, isLoading: isLoadingShow, isError: isShowError } = useQuery({
     queryKey: ['show', showId],
     queryFn: async () => {
       const shows = await base44.entities.Show.filter({ id: showId });
@@ -143,7 +189,7 @@ export default function ShowDetail() {
   };
 
   const getWallStats = (wall) => {
-    const layout = wall.layout_data ? JSON.parse(wall.layout_data) : [];
+    const layout = parseLayoutDataSafe(wall.layout_data);
     let weight = 0, powerTyp = 0, pixelW = 0, pixelH = 0;
     
     layout.forEach(item => {
@@ -160,10 +206,27 @@ export default function ShowDetail() {
     return { panels: layout.length, weight, powerTyp, widthM, heightM };
   };
 
-  if (!show) {
+  if (isLoadingShow) {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
         <p className="text-slate-400">Loading show...</p>
+      </div>
+    );
+  }
+
+  if (isShowError || !show) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-300 text-lg font-medium">Show not found</p>
+          <p className="text-slate-500 mt-1">The show link may be invalid or the record no longer exists.</p>
+          <Link to={createPageUrl('Shows')}>
+            <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Shows
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -184,7 +247,7 @@ export default function ShowDetail() {
               {show.date && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  {format(new Date(show.date), 'MMM d, yyyy')}
+                  {formatDateSafe(show.date)}
                 </span>
               )}
               {show.venue && (
