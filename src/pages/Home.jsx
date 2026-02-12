@@ -66,7 +66,11 @@ export default function Home() {
               </Button>
             </Link>
             <Link to={createPageUrl('CabinetLibrary')}>
-              <Button size="lg" variant="outline">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-900"
+              >
                 <Package className="w-5 h-5 mr-2" />
                 Cabinet Library
               </Button>
