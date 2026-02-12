@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "@/components/ui/use-toast";
 import { 
   Plus, 
   Search, 
@@ -23,6 +24,40 @@ import {
   Clapperboard
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+const VALID_STATUSES = ['draft', 'confirmed', 'deployed', 'wrapped'];
+
+function normalizeStatus(value) {
+  const normalized = String(value || '').toLowerCase();
+  return VALID_STATUSES.includes(normalized) ? normalized : 'draft';
+}
+
+function normalizeDateForApi(value) {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeDateForInput(value) {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
+function parseMutationError(error) {
+  if (!error) return 'Unknown error.';
+  if (typeof error === 'string') return error;
+  const details =
+    error?.data?.message ||
+    error?.data?.error ||
+    error?.response?.data?.message ||
+    error?.message;
+  return details || 'Request failed. Please try again.';
+}
 
 export default function Shows() {
   const queryClient = useQueryClient();
@@ -51,24 +86,59 @@ export default function Shows() {
   const createShow = useMutation({
     mutationFn: (data) => base44.entities.Show.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['shows']);
+      queryClient.invalidateQueries({ queryKey: ['shows'] });
       setShowDialog(false);
       resetForm();
+      toast({
+        title: 'Show created',
+        description: 'Your show has been added successfully.'
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Could not create show',
+        description: parseMutationError(error)
+      });
     }
   });
 
   const updateShow = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Show.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['shows']);
+      queryClient.invalidateQueries({ queryKey: ['shows'] });
       setShowDialog(false);
       resetForm();
+      toast({
+        title: 'Show updated',
+        description: 'Show details have been saved.'
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Could not update show',
+        description: parseMutationError(error)
+      });
     }
   });
 
   const deleteShow = useMutation({
     mutationFn: (id) => base44.entities.Show.delete(id),
-    onSuccess: () => queryClient.invalidateQueries(['shows'])
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shows'] });
+      toast({
+        title: 'Show deleted',
+        description: 'The show was removed.'
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Could not delete show',
+        description: parseMutationError(error)
+      });
+    }
   });
 
   const resetForm = () => {
@@ -76,11 +146,31 @@ export default function Shows() {
     setEditingShow(null);
   };
 
+  const buildShowPayload = (raw) => ({
+    name: (raw.name || '').trim(),
+    date: normalizeDateForApi(raw.date) || null,
+    venue: (raw.venue || '').trim(),
+    client: (raw.client || '').trim(),
+    notes: (raw.notes || '').trim(),
+    status: normalizeStatus(raw.status)
+  });
+
   const handleSubmit = () => {
+    const trimmedName = (formData.name || '').trim();
+    if (!trimmedName) {
+      toast({
+        variant: 'destructive',
+        title: 'Show name is required',
+        description: 'Enter a show name before creating the show.'
+      });
+      return;
+    }
+
+    const payload = buildShowPayload(formData);
     if (editingShow) {
-      updateShow.mutate({ id: editingShow.id, data: formData });
+      updateShow.mutate({ id: editingShow.id, data: payload });
     } else {
-      createShow.mutate(formData);
+      createShow.mutate(payload);
     }
   };
 
@@ -88,11 +178,11 @@ export default function Shows() {
     setEditingShow(show);
     setFormData({
       name: show.name || '',
-      date: show.date || '',
+      date: normalizeDateForInput(show.date),
       venue: show.venue || '',
       client: show.client || '',
       notes: show.notes || '',
-      status: show.status || 'draft'
+      status: normalizeStatus(show.status)
     });
     setShowDialog(true);
   };
@@ -205,8 +295,14 @@ export default function Shows() {
                       className="bg-slate-700 border-slate-600 mt-1"
                     />
                   </div>
-                  <Button onClick={handleSubmit} className="w-full bg-blue-600 hover:bg-blue-700">
-                    {editingShow ? 'Update Show' : 'Create Show'}
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={createShow.isPending || updateShow.isPending}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {createShow.isPending || updateShow.isPending
+                      ? (editingShow ? 'Updating Show...' : 'Creating Show...')
+                      : (editingShow ? 'Update Show' : 'Create Show')}
                   </Button>
                 </div>
               </DialogContent>
