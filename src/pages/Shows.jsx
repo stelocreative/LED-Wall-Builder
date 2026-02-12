@@ -93,6 +93,10 @@ function formatDateSafe(value) {
   return String(value || '');
 }
 
+function includesIgnoreCase(value, needle) {
+  return String(value ?? '').toLowerCase().includes(needle);
+}
+
 export default function Shows() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -180,6 +184,11 @@ export default function Shows() {
     setEditingShow(null);
   };
 
+  const formatStatusLabel = (status) => {
+    const normalized = normalizeStatus(status);
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+
   const buildShowPayload = (raw) => ({
     name: (raw.name || '').trim(),
     date: normalizeDateForApi(raw.date) || null,
@@ -221,10 +230,13 @@ export default function Shows() {
     setShowDialog(true);
   };
 
-  const filteredShows = shows.filter(s => 
-    s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.venue?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.client?.toLowerCase().includes(searchTerm.toLowerCase())
+  const safeShows = Array.isArray(shows) ? shows : [];
+  const safeWalls = Array.isArray(walls) ? walls : [];
+  const searchNeedle = searchTerm.toLowerCase();
+  const filteredShows = safeShows.filter(s => 
+    includesIgnoreCase(s?.name, searchNeedle) ||
+    includesIgnoreCase(s?.venue, searchNeedle) ||
+    includesIgnoreCase(s?.client, searchNeedle)
   );
 
   const statusColors = {
@@ -346,7 +358,7 @@ export default function Shows() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredShows.map(show => {
-            const showWalls = walls.filter(w => w.show_id === show.id);
+            const showWalls = safeWalls.filter(w => w.show_id === show.id);
             return (
               <Card key={show.id} className="bg-slate-800 border-slate-700 group hover:border-slate-600 transition-colors">
                 <CardHeader className="pb-3">
@@ -354,7 +366,7 @@ export default function Shows() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <Badge className={statusColors[show.status || 'draft']}>
-                          {show.status?.charAt(0).toUpperCase() + show.status?.slice(1) || 'Draft'}
+                          {formatStatusLabel(show.status)}
                         </Badge>
                         {show.revision > 1 && (
                           <Badge variant="outline" className="text-xs">Rev {show.revision}</Badge>
