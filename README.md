@@ -15,16 +15,20 @@ Any change pushed to the repo will also be reflected in the Base44 Builder.
 1. Clone the repository using the project's Git URL 
 2. Navigate to the project directory
 3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+4. Create an `.env.local` file and set the environment variables
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+VITE_BASE44_APP_ID=your_24_char_base44_app_id
+VITE_BASE44_APP_BASE_URL=https://your-app-slug.base44.app
 ```
+
+How to find `VITE_BASE44_APP_ID`:
+- Open your app in Base44 Builder
+- Copy the 24-character app ID from the Builder URL (`/apps/<APP_ID>/...`)
+
+How to find `VITE_BASE44_APP_BASE_URL`:
+- In Base44, open Publish/Share settings for your app
+- Copy the published `https://...base44.app` URL
 
 Run the app: `npm run dev`
 

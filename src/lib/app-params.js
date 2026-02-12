@@ -1,8 +1,6 @@
 const isNode = typeof window === 'undefined';
 const windowObj = isNode ? { localStorage: new Map() } : window;
 const storage = windowObj.localStorage;
-const DEFAULT_BASE44_APP_ID = '874024f5';
-const DEFAULT_BASE44_APP_BASE_URL = 'https://led-wall-deployment-designer-874024f5.base44.app';
 
 const isUsableValue = (value) => {
 	if (value === null || value === undefined) return false;
@@ -53,13 +51,13 @@ const getAppParams = () => {
 	}
 		return {
 			appId: getAppParamValue("app_id", {
-				defaultValue: import.meta.env.VITE_BASE44_APP_ID || DEFAULT_BASE44_APP_ID
+				defaultValue: import.meta.env.VITE_BASE44_APP_ID
 			}),
 			token: getAppParamValue("access_token", { removeFromUrl: true }),
 			fromUrl: getAppParamValue("from_url", { defaultValue: window.location.href }),
 			functionsVersion: getAppParamValue("functions_version", { defaultValue: import.meta.env.VITE_BASE44_FUNCTIONS_VERSION }),
 			appBaseUrl: getAppParamValue("app_base_url", {
-				defaultValue: import.meta.env.VITE_BASE44_APP_BASE_URL || DEFAULT_BASE44_APP_BASE_URL
+				defaultValue: import.meta.env.VITE_BASE44_APP_BASE_URL
 			}),
 		}
 }
