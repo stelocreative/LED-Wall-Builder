@@ -191,9 +191,17 @@ const DeploymentSheet = forwardRef(({
   const powerOriginSide = wall?.deployment_type === 'flown' ? 'top' : 'bottom';
   const socapexMode = wall?.power_strategy === 'socapex';
 
-  const cellSize = 40;
-  const canvasWidth = gridCols * cellSize;
-  const canvasHeight = gridRows * cellSize;
+  const safeGridCols = Math.max(1, Number(gridCols) || 1);
+  const safeGridRows = Math.max(1, Number(gridRows) || 1);
+  const cellSize = Math.max(12, Math.floor(Math.min(680 / safeGridCols, 760 / safeGridRows)));
+  const canvasWidth = safeGridCols * cellSize;
+  const canvasHeight = safeGridRows * cellSize;
+  const pageBreakAfterStyle = { breakAfter: 'page', pageBreakAfter: 'always' };
+  const hasLoomSection = loomBundles.length > 0;
+  const hasDataRunsSection = dataRuns.length > 0;
+  const hasPowerSection = powerPlan.length > 0;
+  const hasCableSection = true;
+  const hasChecklistSection = crewChecklist.length > 0;
 
   const cabinetGeometryById = new Map(
     layout
@@ -418,8 +426,10 @@ const DeploymentSheet = forwardRef(({
         )}
       </div>
 
+      <div style={pageBreakAfterStyle} />
+
       {/* Wall Diagram */}
-      <div className="border border-gray-300 p-4 mb-6">
+      <div className="border border-gray-300 p-4 min-h-[9.7in] flex flex-col justify-start">
         <h3 className="font-bold text-sm mb-3">WALL DIAGRAM</h3>
         <div className="flex justify-center">
           <svg 
@@ -429,20 +439,20 @@ const DeploymentSheet = forwardRef(({
           >
             {/* Dimension labels */}
             <text x={canvasWidth/2 + 30} y={15} textAnchor="middle" fontSize="10" fill="#666">
-              {mmToM(gridCols * baseGridWidth)}m ({mmToFt(gridCols * baseGridWidth)}')
+              {mmToM(safeGridCols * baseGridWidth)}m ({mmToFt(safeGridCols * baseGridWidth)}')
             </text>
             <text x={15} y={canvasHeight/2 + 30} textAnchor="middle" fontSize="10" fill="#666" 
                   transform={`rotate(-90, 15, ${canvasHeight/2 + 30})`}>
-              {mmToM(gridRows * baseGridHeight)}m ({mmToFt(gridRows * baseGridHeight)}')
+              {mmToM(safeGridRows * baseGridHeight)}m ({mmToFt(safeGridRows * baseGridHeight)}')
             </text>
             
             <g transform="translate(30, 30)">
               {/* Grid */}
-              {Array.from({ length: gridRows + 1 }).map((_, i) => (
+              {Array.from({ length: safeGridRows + 1 }).map((_, i) => (
                 <line key={`h${i}`} x1={0} y1={i * cellSize} x2={canvasWidth} y2={i * cellSize} 
                       stroke="#ddd" strokeWidth="0.5" />
               ))}
-              {Array.from({ length: gridCols + 1 }).map((_, i) => (
+              {Array.from({ length: safeGridCols + 1 }).map((_, i) => (
                 <line key={`v${i}`} x1={i * cellSize} y1={0} x2={i * cellSize} y2={canvasHeight} 
                       stroke="#ddd" strokeWidth="0.5" />
               ))}
@@ -721,6 +731,8 @@ const DeploymentSheet = forwardRef(({
         )}
       </div>
 
+      <div style={pageBreakAfterStyle} />
+
       {/* Loom Summary */}
       {loomBundles.length > 0 && (
         <div className="border border-gray-300 p-4 mb-6">
@@ -794,6 +806,10 @@ const DeploymentSheet = forwardRef(({
         </div>
       )}
 
+      {(hasLoomSection || hasDataRunsSection) && (hasPowerSection || hasCableSection || hasChecklistSection) && (
+        <div style={pageBreakAfterStyle} />
+      )}
+
       {/* Power Circuits Table */}
       {powerPlan.length > 0 && (
         <div className="border border-gray-300 p-4 mb-6">
@@ -837,6 +853,10 @@ const DeploymentSheet = forwardRef(({
             </tbody>
           </table>
         </div>
+      )}
+
+      {hasPowerSection && (hasCableSection || hasChecklistSection) && (
+        <div style={pageBreakAfterStyle} />
       )}
 
       {/* Cable Pull List */}
@@ -887,6 +907,8 @@ const DeploymentSheet = forwardRef(({
           </div>
         </div>
       </div>
+
+      {hasChecklistSection && <div style={pageBreakAfterStyle} />}
 
       {/* Crew Checklist */}
       <div className="border border-gray-300 p-4">
