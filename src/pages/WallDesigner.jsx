@@ -254,12 +254,17 @@ export default function WallDesigner() {
     }, 100);
   };
 
-  const handleStrategyChange = (strategy) => {
-    updateWall.mutate({ power_strategy: strategy });
+  const handleWallUpdate = (data) => {
+    updateWall.mutate({
+      ...data,
+      layout_data: JSON.stringify(layout),
+      data_runs: JSON.stringify(dataRuns),
+      power_plan: JSON.stringify(powerPlan)
+    });
   };
 
-  const handleWallUpdate = (data) => {
-    updateWall.mutate(data);
+  const handleStrategyChange = (strategy) => {
+    handleWallUpdate({ power_strategy: strategy });
   };
 
   if (!wallId) {
@@ -535,7 +540,7 @@ export default function WallDesigner() {
                       <Label className="text-xs text-slate-400">Voltage Mode</Label>
                       <Select 
                         value={wall.voltage_mode || '208v'} 
-                        onValueChange={(v) => updateWall.mutate({ voltage_mode: v })}
+                        onValueChange={(v) => handleWallUpdate({ voltage_mode: v })}
                       >
                         <SelectTrigger className="bg-slate-700 border-slate-600 mt-1 text-white">
                           <SelectValue />
@@ -550,7 +555,7 @@ export default function WallDesigner() {
                       <Label className="text-xs text-slate-400">Deployment Type</Label>
                       <Select 
                         value={wall.deployment_type || 'ground_stack'} 
-                        onValueChange={(v) => updateWall.mutate({ deployment_type: v })}
+                        onValueChange={(v) => handleWallUpdate({ deployment_type: v })}
                       >
                         <SelectTrigger className="bg-slate-700 border-slate-600 mt-1 text-white">
                           <SelectValue />
@@ -572,7 +577,7 @@ export default function WallDesigner() {
                           value={widthMeters}
                           onChange={(e) => {
                             const meters = parsePositiveNumber(e.target.value, gridCols * GRID_UNIT_M);
-                            updateWall.mutate({
+                            handleWallUpdate({
                               grid_columns: Math.max(1, Math.round(meters / GRID_UNIT_M)),
                               base_grid_width_mm: BASE_GRID_MM
                             });
@@ -589,7 +594,7 @@ export default function WallDesigner() {
                           value={heightMeters}
                           onChange={(e) => {
                             const meters = parsePositiveNumber(e.target.value, gridRows * GRID_UNIT_M);
-                            updateWall.mutate({
+                            handleWallUpdate({
                               grid_rows: Math.max(1, Math.round(meters / GRID_UNIT_M)),
                               base_grid_height_mm: BASE_GRID_MM
                             });
