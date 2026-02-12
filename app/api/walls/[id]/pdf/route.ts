@@ -66,8 +66,9 @@ export async function GET(request: NextRequest, context: Context) {
       revisionNotes
     })
   );
+  const pdfBytes = new Uint8Array(pdfBuffer);
 
-  return new NextResponse(pdfBuffer, {
+  return new NextResponse(pdfBytes, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${wall.name.replace(/\s+/g, "-").toLowerCase()}-crew-packet.pdf"`
