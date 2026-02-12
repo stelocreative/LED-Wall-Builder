@@ -228,11 +228,6 @@ const DeploymentSheet = forwardRef(({
   const circuitTagFont = Math.max(5, Math.min(6.5, cellSize * 0.16));
   const cabinetLabelFont = Math.max(6, Math.min(10, cellSize * 0.24));
   const pageBreakAfterStyle = { breakAfter: 'page', pageBreakAfter: 'always' };
-  const hasLoomSection = loomBundles.length > 0;
-  const hasDataRunsSection = dataRuns.length > 0;
-  const hasPowerSection = powerPlan.length > 0;
-  const hasCableSection = true;
-  const hasChecklistSection = crewChecklist.length > 0;
 
   const cabinetGeometryById = new Map(
     layout
@@ -861,10 +856,6 @@ const DeploymentSheet = forwardRef(({
         </div>
       )}
 
-      {(hasLoomSection || hasDataRunsSection) && (hasPowerSection || hasCableSection || hasChecklistSection) && (
-        <div style={pageBreakAfterStyle} />
-      )}
-
       {/* Power Circuits Table */}
       {powerPlan.length > 0 && (
         <div className="border border-gray-300 p-4 mb-6">
@@ -908,10 +899,6 @@ const DeploymentSheet = forwardRef(({
             </tbody>
           </table>
         </div>
-      )}
-
-      {hasPowerSection && (hasCableSection || hasChecklistSection) && (
-        <div style={pageBreakAfterStyle} />
       )}
 
       {/* Cable Pull List */}
@@ -962,8 +949,6 @@ const DeploymentSheet = forwardRef(({
           </div>
         </div>
       </div>
-
-      {hasChecklistSection && <div style={pageBreakAfterStyle} />}
 
       {/* Crew Checklist */}
       <div className="border border-gray-300 p-4">
