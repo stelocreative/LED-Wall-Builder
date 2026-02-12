@@ -193,10 +193,8 @@ export default function CabinetLibrary() {
                 const builtIn = isPopularId(cabinet.id);
                 return (
                   <div key={cabinet.id} className="relative group">
-                    <CabinetCard variant={cabinet} family={family} />
-                    {builtIn ? (
-                      <Badge className="absolute top-2 right-2 bg-indigo-600/90">Built-in</Badge>
-                    ) : (
+                    <CabinetCard variant={cabinet} family={family} builtIn={builtIn} />
+                    {!builtIn ? (
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         <Button 
                           size="icon" 
@@ -215,7 +213,7 @@ export default function CabinetLibrary() {
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}

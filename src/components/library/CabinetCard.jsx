@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Zap, Weight, Grid3X3, Ruler } from 'lucide-react';
 
-export default function CabinetCard({ variant, family, selected, onClick, compact = false }) {
+export default function CabinetCard({ variant, family, selected, onClick, compact = false, builtIn = false }) {
   const mmToInches = (mm) => (mm / 25.4).toFixed(1);
   const kgToLbs = (kg) => (kg * 2.205).toFixed(1);
 
@@ -45,7 +45,10 @@ export default function CabinetCard({ variant, family, selected, onClick, compac
             <h3 className="font-semibold text-white">{family?.manufacturer}</h3>
             <p className="text-sm text-slate-300">{family?.family_name} - {variant.variant_name}</p>
           </div>
-          <Badge className="bg-emerald-600">{family?.pixel_pitch}mm</Badge>
+          <div className="flex items-center gap-1">
+            <Badge className="bg-emerald-600">{family?.pixel_pitch}mm</Badge>
+            {builtIn ? <Badge className="bg-indigo-600">Built-in</Badge> : null}
+          </div>
         </div>
         
         <div className="grid grid-cols-2 gap-3 text-sm">
