@@ -1,4 +1,0 @@
-{
-  "ignorePatterns": ["src/**", "**/* 2.*"],
-  "extends": ["next/core-web-vitals", "next/typescript"]
-}

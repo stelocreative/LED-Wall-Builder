@@ -1,95 +1,39 @@
-# LED Wall Deployment Designer (Ground Stack + Flown)
+**Welcome to your Base44 project** 
 
-Touring-grade SaaS planner for concert/event LED wall deployment engineering.
+**About**
 
-## What This Build Now Supports
-- Show/Event model: show name, date, venue, revision notes.
-- Panel Family + Cabinet Variant library:
-  - Manufacturer, family, pitch, notes.
-  - Variants with mixed form factors (500x500, 500x1000, etc.).
-  - Full specs: physical dimensions (mm/in), pixels, weight (kg/lbs), connectors.
-  - Power profiles: Min / Typical / Max / Peak watts.
-  - Planning presets per variant:
-    - 20A @120V / @208V
-    - Socapex circuit @120V / @208V
-    - L21-30 recommendation
-- Processor library with editable models and receiving-card-aware pixel limits.
-- Wall creation in two modes:
-  - By physical size (m + ft)
-  - By unit counts
-- Base grid design (default 500x500; customizable base unit).
-- Mixed cabinet layouts in one wall with correct multi-cell occupancy.
-- Canvas workflow with layers:
-  - Cabinets
-  - Data arrows
-  - Power arrows
-  - Measurements + labels toggles
-- Voltage-aware power planning:
-  - 120V / 208V selectable
-  - Strategies: 20A Edison, L21-30, Socapex, Camlock-fed distro notes
-  - Circuit grouping modes: balanced, minimize home runs, by section
-  - Threshold warnings at planning% and hard-limit%
-  - Min/Typ/Max/Peak W and A totals
-  - Socapex run/circuit counts
-- Data planning:
-  - Snake rows / snake columns / custom(label-order)
-  - Processor port mapping
-  - Loom bundles, port groups
-  - Run table with cabinet count, jumpers, home run estimates
-- Crew print/PDF outputs with title block, voltage mode, dimensions in m/ft, mixed variant breakdown, power totals, data/power tables.
+View and Edit  your app on [Base44.com](http://Base44.com) 
 
-## Stack
-- Next.js App Router + TypeScript
-- `react-konva` for layout canvas
-- Supabase Postgres for persistence
-- `@react-pdf/renderer` for PDF
+This project contains everything you need to run your app locally.
 
-## Environment Variables
-Create `.env.local` from `.env.example`.
+**Edit the code in your local development environment**
 
-Required:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+Any change pushed to the repo will also be reflected in the Base44 Builder.
 
-## Database Setup (Important)
-Run migrations in this order:
-1. `supabase/migrations/202602110001_initial_schema.sql`
-2. `supabase/migrations/202602120002_touring_model.sql`
+**Prerequisites:** 
 
-Then seed:
-- `supabase/seed.sql`
+1. Clone the repository using the project's Git URL 
+2. Navigate to the project directory
+3. Install dependencies: `npm install`
+4. Create an `.env.local` file and set the right environment variables
 
-## Local Run
-```bash
-npm install
-npm run dev
+```
+VITE_BASE44_APP_ID=your_app_id
+VITE_BASE44_APP_BASE_URL=your_backend_url
+
+e.g.
+VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
+VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
 ```
 
-## Deploy (Vercel)
-1. Import GitHub repo in Vercel.
-2. Set environment variables listed above.
-3. Deploy.
-4. On schema updates, run migrations in Supabase SQL Editor, then seed.
+Run the app: `npm run dev`
 
-## Routes
-- `/` dashboard
-- `/library` cabinet + processor library manager
-- `/shows/new` create show
-- `/shows/[id]` show detail + walls
-- `/walls/new` wall creation flow
-- `/walls/[id]` designer canvas + planning tables
-- `/walls/[id]/print` print-friendly crew sheet
-- `/api/walls/[id]/pdf` generated PDF
+**Publish your changes**
 
-## Recommended Next Enhancements
-- Multi-user auth + project-level RLS
-- Rigging load checks (point loads / trim heights)
-- Cable pull list generator by connector type
-- Spare-cab strategy planner by region
-- Processor redundancy / backup path planner
-- Fixture/hoist collision and sightline overlay import
+Open [Base44.com](http://Base44.com) and click on Publish.
 
-## Acceptance Tests
-See:
-- `docs/acceptance-tests.md`
+**Docs & Support**
+
+Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+
+Support: [https://app.base44.com/support](https://app.base44.com/support)
