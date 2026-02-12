@@ -10,6 +10,23 @@ const DATA_PATH_COLOR = '#f59e0b';
 const DATA_PATH_OUTLINE = '#111827';
 const DATA_PATH_STROKE = 3;
 const DATA_PATH_OUTLINE_STROKE = 5;
+const POWER_PATH_OUTLINE = '#111827';
+const POWER_PATH_STROKE = 2.4;
+const POWER_PATH_OUTLINE_STROKE = 4.2;
+const POWER_CIRCUIT_PALETTE = [
+  { stroke: '#ef4444', fill: '#ef4444' },
+  { stroke: '#8b5cf6', fill: '#8b5cf6' },
+  { stroke: '#f97316', fill: '#f97316' },
+  { stroke: '#06b6d4', fill: '#06b6d4' },
+  { stroke: '#e11d48', fill: '#e11d48' },
+  { stroke: '#6366f1', fill: '#6366f1' },
+  { stroke: '#14b8a6', fill: '#14b8a6' },
+  { stroke: '#a855f7', fill: '#a855f7' },
+  { stroke: '#dc2626', fill: '#dc2626' },
+  { stroke: '#0ea5e9', fill: '#0ea5e9' },
+  { stroke: '#f59e0b', fill: '#f59e0b' },
+  { stroke: '#10b981', fill: '#10b981' }
+];
 
 function parseArraySafe(value) {
   if (!value) return [];
@@ -47,6 +64,21 @@ function getDefaultChecklist(deploymentType) {
     { id: 'stability', text: 'Wall stability and bracing checked', checked: false },
     ...baseItems
   ];
+}
+
+function getCircuitShortLabel(label, index) {
+  const match = String(label || '').match(/(\d+)/);
+  if (match) {
+    return `C${match[1]}`;
+  }
+  return `C${index + 1}`;
+}
+
+function orthogonalPoints(x1, y1, x2, y2) {
+  if (x1 === x2 || y1 === y2) {
+    return `${x1},${y1} ${x2},${y2}`;
+  }
+  return `${x1},${y1} ${x1},${y2} ${x2},${y2}`;
 }
 
 const DeploymentSheet = forwardRef(({ 
@@ -156,10 +188,74 @@ const DeploymentSheet = forwardRef(({
   const dataHomeRuns = dataRuns.length;
   const powerJumpers = powerPlan.reduce((acc, circuit) => acc + Math.max(0, (circuit.cabinet_ids?.length || 0) - 1), 0);
   const powerHomeRuns = powerPlan.length;
+  const powerOriginSide = wall?.deployment_type === 'flown' ? 'top' : 'bottom';
+  const socapexMode = wall?.power_strategy === 'socapex';
 
   const cellSize = 40;
   const canvasWidth = gridCols * cellSize;
   const canvasHeight = gridRows * cellSize;
+
+  const cabinetGeometryById = new Map(
+    layout
+      .map((item) => {
+        const variant = cabinets.find((c) => c.id === item.cabinet_id);
+        if (!variant) return null;
+        const spanCols = Math.ceil(variant.width_mm / baseGridWidth);
+        const spanRows = Math.ceil(variant.height_mm / baseGridHeight);
+        const x = item.col * cellSize;
+        const y = item.row * cellSize;
+        const w = spanCols * cellSize;
+        const h = spanRows * cellSize;
+        return [
+          item.id,
+          {
+            id: item.id,
+            x,
+            y,
+            w,
+            h,
+            cx: x + w / 2,
+            cy: y + h / 2,
+            entryTopY: y + 3,
+            entryBottomY: y + h - 3
+          }
+        ];
+      })
+      .filter(Boolean)
+  );
+
+  const powerCircuitsForDrawing = powerPlan
+    .map((circuit, idx) => {
+      const cabinetIds = (circuit.cabinet_ids || []).filter((id) => cabinetGeometryById.has(id));
+      if (!cabinetIds.length) {
+        return null;
+      }
+      const geometry = cabinetIds.map((id) => cabinetGeometryById.get(id));
+      const avgX = geometry.reduce((sum, g) => sum + g.cx, 0) / geometry.length;
+      const palette = POWER_CIRCUIT_PALETTE[idx % POWER_CIRCUIT_PALETTE.length];
+      return {
+        id: circuit.id || `circuit-${idx + 1}`,
+        label: circuit.label || `Circuit ${idx + 1}`,
+        shortLabel: getCircuitShortLabel(circuit.label, idx),
+        markerId: `power-arrow-${idx}`,
+        cabinetIds,
+        geometry,
+        avgX,
+        color: palette,
+        tailIndex: Math.floor(idx / 6)
+      };
+    })
+    .filter(Boolean);
+
+  const powerCircuitByCabinetId = new Map();
+  powerCircuitsForDrawing.forEach((circuit) => {
+    circuit.cabinetIds.forEach((cabinetId) => {
+      powerCircuitByCabinetId.set(cabinetId, circuit);
+    });
+  });
+
+  const powerEntryY = powerOriginSide === 'top' ? -10 : canvasHeight + 10;
+  const socapexTailCount = socapexMode ? Math.max(1, Math.ceil(powerCircuitsForDrawing.length / 6)) : 0;
 
   return (
     <div ref={ref} className="bg-white text-black p-8 min-h-[11in] w-[8.5in] mx-auto print:p-6">
@@ -361,16 +457,162 @@ const DeploymentSheet = forwardRef(({
                 const y = item.row * cellSize;
                 const w = spanCols * cellSize;
                 const h = spanRows * cellSize;
+                const powerCircuit = powerCircuitByCabinetId.get(item.id);
                 
                 return (
                   <g key={item.id}>
                     <rect x={x + 1} y={y + 1} width={w - 2} height={h - 2} 
                           fill={item.status === 'spare' ? '#fbbf24' : '#10b981'} 
-                          stroke="#000" strokeWidth="1" />
+                          stroke={powerCircuit ? powerCircuit.color.stroke : '#000'}
+                          strokeWidth={powerCircuit ? "1.8" : "1"} />
                     <text x={x + w/2} y={y + h/2} textAnchor="middle" dominantBaseline="middle" 
                           fontSize="8" fontWeight="bold" fill="#fff">
                       {item.label}
                     </text>
+                    {powerCircuit && (
+                      <>
+                        <rect
+                          x={x + w - 18}
+                          y={y + 2}
+                          width="16"
+                          height="10"
+                          rx="2"
+                          fill={powerCircuit.color.fill}
+                          stroke={POWER_PATH_OUTLINE}
+                          strokeWidth="0.8"
+                        />
+                        <text
+                          x={x + w - 10}
+                          y={y + 7}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="6"
+                          fontWeight="bold"
+                          fill="#fff"
+                        >
+                          {powerCircuit.shortLabel}
+                        </text>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Socapex trunk runs */}
+              {socapexMode && socapexTailCount > 0 && Array.from({ length: socapexTailCount }).map((_, tailIndex) => {
+                const busY = powerOriginSide === 'top' ? -14 - (tailIndex * 8) : canvasHeight + 14 + (tailIndex * 8);
+                return (
+                  <g key={`soca-tail-${tailIndex}`}>
+                    <line
+                      x1={0}
+                      y1={busY}
+                      x2={canvasWidth}
+                      y2={busY}
+                      stroke={POWER_PATH_OUTLINE}
+                      strokeWidth={POWER_PATH_OUTLINE_STROKE + 0.8}
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1={0}
+                      y1={busY}
+                      x2={canvasWidth}
+                      y2={busY}
+                      stroke="#7c3aed"
+                      strokeWidth={POWER_PATH_STROKE + 0.8}
+                      strokeLinecap="round"
+                    />
+                    <text
+                      x={4}
+                      y={busY - 2}
+                      fontSize="6"
+                      fill="#5b21b6"
+                      fontWeight="bold"
+                    >
+                      SOCA {tailIndex + 1}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Power routes */}
+              {powerCircuitsForDrawing.map((circuit) => {
+                const firstCabinet = cabinetGeometryById.get(circuit.cabinetIds[0]);
+                if (!firstCabinet) return null;
+
+                const anchorX = Math.max(6, Math.min(canvasWidth - 6, circuit.avgX));
+                const busY = powerOriginSide === 'top' ? -14 - (circuit.tailIndex * 8) : canvasHeight + 14 + (circuit.tailIndex * 8);
+                const firstEntryY = powerOriginSide === 'top' ? firstCabinet.entryTopY : firstCabinet.entryBottomY;
+                const homeRunPoints = orthogonalPoints(anchorX, powerEntryY, firstCabinet.cx, firstEntryY);
+
+                return (
+                  <g key={`power-route-${circuit.id}`}>
+                    {socapexMode && (
+                      <>
+                        <polyline
+                          points={`${anchorX},${busY} ${anchorX},${powerEntryY}`}
+                          fill="none"
+                          stroke={POWER_PATH_OUTLINE}
+                          strokeWidth={POWER_PATH_OUTLINE_STROKE}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <polyline
+                          points={`${anchorX},${busY} ${anchorX},${powerEntryY}`}
+                          fill="none"
+                          stroke={circuit.color.stroke}
+                          strokeWidth={POWER_PATH_STROKE}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </>
+                    )}
+
+                    <polyline
+                      points={homeRunPoints}
+                      fill="none"
+                      stroke={POWER_PATH_OUTLINE}
+                      strokeWidth={POWER_PATH_OUTLINE_STROKE}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <polyline
+                      points={homeRunPoints}
+                      fill="none"
+                      stroke={circuit.color.stroke}
+                      strokeWidth={POWER_PATH_STROKE}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      markerEnd={`url(#${circuit.markerId})`}
+                    />
+
+                    {circuit.cabinetIds.map((cabinetId, index) => {
+                      if (index === circuit.cabinetIds.length - 1) return null;
+                      const current = cabinetGeometryById.get(circuit.cabinetIds[index]);
+                      const next = cabinetGeometryById.get(circuit.cabinetIds[index + 1]);
+                      if (!current || !next) return null;
+                      const points = orthogonalPoints(current.cx, current.cy, next.cx, next.cy);
+                      return (
+                        <g key={`power-chain-${circuit.id}-${cabinetId}`}>
+                          <polyline
+                            points={points}
+                            fill="none"
+                            stroke={POWER_PATH_OUTLINE}
+                            strokeWidth={POWER_PATH_OUTLINE_STROKE - 0.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <polyline
+                            points={points}
+                            fill="none"
+                            stroke={circuit.color.stroke}
+                            strokeWidth={POWER_PATH_STROKE - 0.3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            markerEnd={`url(#${circuit.markerId})`}
+                          />
+                        </g>
+                      );
+                    })}
                   </g>
                 );
               })}
@@ -418,7 +660,7 @@ const DeploymentSheet = forwardRef(({
                         strokeWidth={DATA_PATH_STROKE}
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        markerEnd="url(#arrow)"
+                        markerEnd="url(#arrow-data)"
                       />
                     </g>
                   );
@@ -427,7 +669,12 @@ const DeploymentSheet = forwardRef(({
             </g>
             
             <defs>
-              <marker id="arrow" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
+              {powerCircuitsForDrawing.map((circuit) => (
+                <marker key={circuit.markerId} id={circuit.markerId} markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+                  <polygon points="0 0, 12 4, 0 8" fill={circuit.color.fill} stroke={POWER_PATH_OUTLINE} strokeWidth="0.7" />
+                </marker>
+              ))}
+              <marker id="arrow-data" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
                 <polygon points="0 0, 14 5, 0 10" fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth="0.9" />
               </marker>
             </defs>
@@ -435,7 +682,7 @@ const DeploymentSheet = forwardRef(({
         </div>
         
         {/* Legend */}
-        <div className="flex gap-6 justify-center mt-4 text-xs">
+        <div className="flex gap-6 justify-center mt-4 text-xs flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-emerald-500 border border-black"></div>
             <span>Active</span>
@@ -448,7 +695,30 @@ const DeploymentSheet = forwardRef(({
             <div className="w-8 h-1 rounded bg-amber-500 border border-gray-900"></div>
             <span>Data Path</span>
           </div>
+          {powerCircuitsForDrawing.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-1 rounded bg-red-500 border border-gray-900"></div>
+              <span>Power ({powerOriginSide === 'top' ? 'Top Feed / Flown' : 'Bottom Feed / Ground'})</span>
+            </div>
+          )}
         </div>
+        {powerCircuitsForDrawing.length > 0 && (
+          <div className="mt-2 flex flex-wrap justify-center gap-2 text-[10px]">
+            {powerCircuitsForDrawing.map((circuit) => (
+              <span
+                key={`power-legend-${circuit.id}`}
+                className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-0.5"
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm border border-gray-900"
+                  style={{ backgroundColor: circuit.color.fill }}
+                />
+                <span>{circuit.shortLabel}</span>
+                <span className="text-gray-500">({circuit.cabinetIds.length})</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Loom Summary */}
