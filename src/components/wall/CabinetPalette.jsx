@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Wand2 } from 'lucide-react';
+import { Star, Wand2 } from 'lucide-react';
+import {
+  readFavoriteCabinetIds,
+  subscribeFavoriteCabinetIds,
+  sortCabinetsByFavorites,
+  isCabinetFavorite
+} from '@/lib/cabinet-favorites';
 
 export default function CabinetPalette({ 
   cabinets, 
@@ -19,6 +25,17 @@ export default function CabinetPalette({
     const rows = Math.ceil(variant.height_mm / baseGridHeight);
     return `${cols}×${rows}`;
   };
+
+  const [favoriteCabinetIds, setFavoriteCabinetIds] = useState(() => readFavoriteCabinetIds());
+
+  useEffect(() => {
+    return subscribeFavoriteCabinetIds((ids) => setFavoriteCabinetIds(ids));
+  }, []);
+
+  const sortedCabinets = useMemo(
+    () => sortCabinetsByFavorites(cabinets, favoriteCabinetIds),
+    [cabinets, favoriteCabinetIds]
+  );
 
   return (
     <Card className="bg-slate-800 border-slate-700">
@@ -37,14 +54,15 @@ export default function CabinetPalette({
           </Button>
         </div>
         <p className="text-xs text-slate-400">
-          Select a cabinet, then auto-fill all open spots that physically fit that size.
+          Favorites are pinned first. Select a cabinet, then auto-fill all open spots that physically fit that size.
         </p>
       </CardHeader>
       <CardContent className="p-2">
         <ScrollArea className="h-48">
           <div className="space-y-2 pr-2">
-            {cabinets.map(variant => {
+            {sortedCabinets.map(variant => {
               const family = families.find(f => f.id === variant.panel_family_id);
+              const favorite = isCabinetFavorite(variant.id, favoriteCabinetIds);
               return (
                 <div
                   key={variant.id}
@@ -57,7 +75,10 @@ export default function CabinetPalette({
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-white text-sm">{variant.variant_name}</p>
+                      <p className="font-medium text-white text-sm flex items-center gap-1.5">
+                        {favorite ? <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" /> : null}
+                        <span>{variant.variant_name}</span>
+                      </p>
                       <p className="text-xs text-slate-400">
                         {family?.manufacturer} {family?.family_name}
                       </p>
@@ -74,7 +95,7 @@ export default function CabinetPalette({
                 </div>
               );
             })}
-            {cabinets.length === 0 && (
+            {sortedCabinets.length === 0 && (
               <p className="text-center text-slate-500 text-sm py-4">
                 No cabinets in library. Add some in Cabinet Library.
               </p>
