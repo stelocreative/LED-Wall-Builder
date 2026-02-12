@@ -120,7 +120,7 @@ export default function NewWallPage() {
             <input
               type="number"
               min="1"
-              step="0.1"
+              step="0.01"
               value={widthFeet}
               onChange={(event) => {
                 const value = Number(event.target.value);
@@ -153,7 +153,7 @@ export default function NewWallPage() {
             <input
               type="number"
               min="1"
-              step="0.1"
+              step="0.01"
               value={heightFeet}
               onChange={(event) => {
                 const value = Number(event.target.value);
