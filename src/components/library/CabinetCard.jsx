@@ -1,9 +1,18 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Weight, Grid3X3, Ruler } from 'lucide-react';
+import { Zap, Weight, Grid3X3, Ruler, Star } from 'lucide-react';
 
-export default function CabinetCard({ variant, family, selected, onClick, compact = false, builtIn = false }) {
+export default function CabinetCard({
+  variant,
+  family,
+  selected,
+  onClick,
+  compact = false,
+  builtIn = false,
+  favorite = false,
+  onToggleFavorite
+}) {
   const mmToInches = (mm) => (mm / 25.4).toFixed(1);
   const kgToLbs = (kg) => (kg * 2.205).toFixed(1);
 
@@ -48,6 +57,20 @@ export default function CabinetCard({ variant, family, selected, onClick, compac
           <div className="flex items-center gap-1">
             <Badge className="bg-emerald-600">{family?.pixel_pitch}mm</Badge>
             {builtIn ? <Badge className="bg-indigo-600">Built-in</Badge> : null}
+            {onToggleFavorite ? (
+              <button
+                type="button"
+                aria-label={favorite ? "Remove favorite" : "Add favorite"}
+                title={favorite ? "Remove from favorites" : "Add to favorites"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleFavorite();
+                }}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-500/70 bg-slate-900/70 text-slate-200 transition-colors hover:bg-slate-700 hover:text-white"
+              >
+                <Star className={`w-4 h-4 ${favorite ? 'fill-amber-300 text-amber-300' : 'text-slate-300'}`} />
+              </button>
+            ) : null}
           </div>
         </div>
         

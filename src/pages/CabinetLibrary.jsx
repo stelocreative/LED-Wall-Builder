@@ -226,20 +226,15 @@ export default function CabinetLibrary() {
                 const favorite = isCabinetFavorite(cabinet.id, favoriteCabinetIds);
                 return (
                   <div key={cabinet.id} className="relative group">
-                    <CabinetCard variant={cabinet} family={family} builtIn={builtIn} />
-                    <div className="absolute top-2 right-2 z-10">
-                      <Button
-                        size="icon"
-                        variant="secondary"
-                        title={favorite ? 'Remove from favorites' : 'Add to favorites'}
-                        className="h-8 w-8 border border-slate-500/70 bg-slate-900/80 text-slate-200 hover:bg-slate-700 hover:text-white"
-                        onClick={() => handleToggleFavorite(cabinet.id)}
-                      >
-                        <Star className={`w-4 h-4 ${favorite ? 'fill-amber-300 text-amber-300' : 'text-slate-300'}`} />
-                      </Button>
-                    </div>
+                    <CabinetCard
+                      variant={cabinet}
+                      family={family}
+                      builtIn={builtIn}
+                      favorite={favorite}
+                      onToggleFavorite={() => handleToggleFavorite(cabinet.id)}
+                    />
                     {!builtIn ? (
-                      <div className="absolute top-2 right-12 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                      <div className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                         <Button 
                           size="icon" 
                           variant="secondary" 
