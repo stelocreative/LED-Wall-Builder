@@ -1,6 +1,5 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -11,8 +10,6 @@ import {
   Move, 
   Cable, 
   Zap,
-  Eye,
-  EyeOff,
   Tag,
   Ruler
 } from 'lucide-react';
@@ -33,16 +30,14 @@ export default function WallToolbar({
     { id: 'select', icon: MousePointer, label: 'Select' },
     { id: 'place', icon: Plus, label: 'Place' },
     { id: 'delete', icon: Trash2, label: 'Delete' },
-    { id: 'pan', icon: Move, label: 'Pan' },
-    { id: 'data', icon: Cable, label: 'Data Path' },
-    { id: 'power', icon: Zap, label: 'Power' },
+    { id: 'pan', icon: Move, label: 'Pan' }
   ];
 
   return (
     <div className="flex flex-col gap-4 p-4 bg-slate-800/50 rounded-lg">
       <div>
         <Label className="text-xs text-slate-400 mb-2 block">Tools</Label>
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-2 gap-2">
           {tools.map(t => (
             <Button
               key={t.id}
@@ -56,6 +51,9 @@ export default function WallToolbar({
             </Button>
           ))}
         </div>
+        <p className="mt-2 text-[11px] text-slate-400">
+          Data routing lives in the Data tab. Power assignment lives in the Power tab.
+        </p>
       </div>
 
       <Separator className="bg-slate-700" />
