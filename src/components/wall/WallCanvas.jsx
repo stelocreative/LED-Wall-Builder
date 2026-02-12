@@ -15,6 +15,28 @@ const DATA_PATH_STROKE = 3.5;
 const DATA_PATH_OUTLINE_STROKE = 6.5;
 const DATA_ARROW_BASE_WIDTH = 14;
 const DATA_ARROW_BASE_HEIGHT = 10;
+const POWER_CIRCUIT_PALETTE = [
+  { fill: '#ef4444', border: '#fecaca' },
+  { fill: '#8b5cf6', border: '#ddd6fe' },
+  { fill: '#f97316', border: '#fed7aa' },
+  { fill: '#06b6d4', border: '#a5f3fc' },
+  { fill: '#e11d48', border: '#fecdd3' },
+  { fill: '#6366f1', border: '#c7d2fe' },
+  { fill: '#14b8a6', border: '#99f6e4' },
+  { fill: '#a855f7', border: '#f3e8ff' },
+  { fill: '#dc2626', border: '#fee2e2' },
+  { fill: '#0ea5e9', border: '#bae6fd' },
+  { fill: '#f59e0b', border: '#fde68a' },
+  { fill: '#10b981', border: '#a7f3d0' }
+];
+
+function getCircuitShortLabel(label, fallbackIndex) {
+  const match = String(label || '').match(/(\d+)/);
+  if (match) {
+    return `C${match[1]}`;
+  }
+  return `C${fallbackIndex + 1}`;
+}
 
 export default function WallCanvas({ 
   gridCols, 
@@ -42,6 +64,33 @@ export default function WallCanvas({
   const containerRef = useRef(null);
 
   const baseCellSize = 60; // Display size for one base grid unit (500mm)
+  const powerCircuitByCabinetId = new Map();
+  const powerCircuitLegend = [];
+
+  if (showPowerPaths && Array.isArray(powerPlan)) {
+    powerPlan.forEach((circuit, index) => {
+      const cabinetIds = Array.isArray(circuit?.cabinet_ids) ? circuit.cabinet_ids : [];
+      if (!cabinetIds.length) {
+        return;
+      }
+
+      const palette = POWER_CIRCUIT_PALETTE[index % POWER_CIRCUIT_PALETTE.length];
+      const circuitLabel = circuit?.label || `Circuit ${index + 1}`;
+      const summary = {
+        id: circuit?.id || `circuit-${index + 1}`,
+        label: circuitLabel,
+        shortLabel: getCircuitShortLabel(circuitLabel, index),
+        panelCount: cabinetIds.length,
+        fill: palette.fill,
+        border: palette.border
+      };
+
+      powerCircuitLegend.push(summary);
+      cabinetIds.forEach((cabinetId) => {
+        powerCircuitByCabinetId.set(cabinetId, summary);
+      });
+    });
+  }
 
   const getCabinetForCell = (col, row) => {
     return layout.find(item => {
@@ -145,6 +194,8 @@ export default function WallCanvas({
       
       const status = layoutItem.status || 'active';
       const isSelected = selectedCells.includes(layoutItem.id);
+      const powerCircuit = showPowerPaths ? powerCircuitByCabinetId.get(layoutItem.id) : null;
+      const shouldColorByCircuit = Boolean(powerCircuit) && status !== 'void' && status !== 'cutout';
 
       return (
         <div
@@ -156,6 +207,13 @@ export default function WallCanvas({
             top: row * baseCellSize * zoom + pan.y,
             width: wUnits * baseCellSize * zoom - 2,
             height: hUnits * baseCellSize * zoom - 2,
+            ...(shouldColorByCircuit
+              ? {
+                  backgroundColor: powerCircuit.fill,
+                  borderColor: powerCircuit.border,
+                  boxShadow: `inset 0 0 0 1px ${powerCircuit.border}`
+                }
+              : {})
           }}
         >
           {showLabels && (
@@ -163,6 +221,11 @@ export default function WallCanvas({
               <span className="font-bold text-white">{layoutItem.label}</span>
               {zoom > 0.7 && variant && (
                 <span className="text-white/70 text-[10px]">{variant.variant_name}</span>
+              )}
+              {showPowerPaths && powerCircuit && zoom > 0.55 && (
+                <span className="mt-0.5 px-1.5 py-0.5 rounded bg-slate-950/40 text-[9px] font-semibold text-white">
+                  {powerCircuit.shortLabel}
+                </span>
               )}
             </>
           )}
@@ -315,6 +378,28 @@ export default function WallCanvas({
     );
   };
 
+  const renderPowerCircuitLegend = () => {
+    if (!showPowerPaths || !powerCircuitLegend.length) return null;
+
+    return (
+      <div className="absolute right-3 top-3 z-10 rounded-md border border-slate-600 bg-slate-900/85 p-2 text-[10px] text-white">
+        <p className="mb-1 font-semibold text-slate-200">Power Circuits</p>
+        <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+          {powerCircuitLegend.map((circuit) => (
+            <div key={circuit.id} className="flex items-center gap-2 whitespace-nowrap">
+              <span
+                className="h-2.5 w-2.5 rounded-sm border"
+                style={{ backgroundColor: circuit.fill, borderColor: circuit.border }}
+              />
+              <span className="text-slate-100">{circuit.shortLabel}</span>
+              <span className="text-slate-400">({circuit.panelCount})</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const cells = [];
   for (let row = 0; row < gridRows; row++) {
     for (let col = 0; col < gridCols; col++) {
@@ -367,6 +452,7 @@ export default function WallCanvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
+        {renderPowerCircuitLegend()}
         {renderMeasurements()}
         {cells}
         {renderDataPaths()}
