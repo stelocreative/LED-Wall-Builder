@@ -36,6 +36,9 @@ import LabelGenerator from '../components/wall/LabelGenerator';
 import CablePullList from '../components/wall/CablePullList';
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
+const BASE_GRID_MM = 500;
+const GRID_UNIT_M = BASE_GRID_MM / 1000;
+
 function parseArrayField(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -46,6 +49,14 @@ function parseArrayField(value) {
   } catch {
     return [];
   }
+}
+
+function parsePositiveNumber(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
 }
 
 export default function WallDesigner() {
@@ -180,10 +191,12 @@ export default function WallDesigner() {
     );
   }
 
-  const baseGridWidth = wall.base_grid_width_mm || 500;
-  const baseGridHeight = wall.base_grid_height_mm || 500;
+  const baseGridWidth = BASE_GRID_MM;
+  const baseGridHeight = BASE_GRID_MM;
   const gridCols = wall.grid_columns || 8;
   const gridRows = wall.grid_rows || 4;
+  const widthMeters = (gridCols * GRID_UNIT_M).toFixed(1);
+  const heightMeters = (gridRows * GRID_UNIT_M).toFixed(1);
 
   return (
     <>
@@ -340,43 +353,42 @@ export default function WallDesigner() {
                     <Separator className="bg-slate-700" />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs text-slate-400">Columns</Label>
+                        <Label className="text-xs text-slate-400">Wall Width (m)</Label>
                         <Input 
                           type="number"
-                          value={gridCols}
-                          onChange={(e) => updateWall.mutate({ grid_columns: Number(e.target.value) })}
+                          min="0.5"
+                          step="0.5"
+                          value={widthMeters}
+                          onChange={(e) => {
+                            const meters = parsePositiveNumber(e.target.value, gridCols * GRID_UNIT_M);
+                            updateWall.mutate({
+                              grid_columns: Math.max(1, Math.round(meters / GRID_UNIT_M)),
+                              base_grid_width_mm: BASE_GRID_MM
+                            });
+                          }}
                           className="bg-slate-700 border-slate-600 mt-1 text-white"
                         />
                       </div>
                       <div>
-                        <Label className="text-xs text-slate-400">Rows</Label>
+                        <Label className="text-xs text-slate-400">Wall Height (m)</Label>
                         <Input 
                           type="number"
-                          value={gridRows}
-                          onChange={(e) => updateWall.mutate({ grid_rows: Number(e.target.value) })}
+                          min="0.5"
+                          step="0.5"
+                          value={heightMeters}
+                          onChange={(e) => {
+                            const meters = parsePositiveNumber(e.target.value, gridRows * GRID_UNIT_M);
+                            updateWall.mutate({
+                              grid_rows: Math.max(1, Math.round(meters / GRID_UNIT_M)),
+                              base_grid_height_mm: BASE_GRID_MM
+                            });
+                          }}
                           className="bg-slate-700 border-slate-600 mt-1 text-white"
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-slate-400">Grid Width (mm)</Label>
-                        <Input 
-                          type="number"
-                          value={baseGridWidth}
-                          onChange={(e) => updateWall.mutate({ base_grid_width_mm: Number(e.target.value) })}
-                          className="bg-slate-700 border-slate-600 mt-1 text-white"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-slate-400">Grid Height (mm)</Label>
-                        <Input 
-                          type="number"
-                          value={baseGridHeight}
-                          onChange={(e) => updateWall.mutate({ base_grid_height_mm: Number(e.target.value) })}
-                          className="bg-slate-700 border-slate-600 mt-1 text-white"
-                        />
-                      </div>
+                    <div className="rounded-md border border-slate-700 bg-slate-900/30 px-3 py-2 text-xs text-slate-300">
+                      Base grid is fixed at 500x500mm ({gridCols} columns x {gridRows} rows).
                     </div>
                   </div>
                 </TabsContent>

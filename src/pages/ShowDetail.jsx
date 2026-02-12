@@ -29,6 +29,11 @@ import {
 import { format } from 'date-fns';
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
+const BASE_GRID_MM = 500;
+const GRID_UNIT_M = BASE_GRID_MM / 1000;
+const DEFAULT_WALL_WIDTH_M = 8;
+const DEFAULT_WALL_HEIGHT_M = 4;
+
 function parseDateSafe(value) {
   if (!value) return null;
   if (value instanceof Date) {
@@ -75,6 +80,14 @@ function parseLayoutDataSafe(layoutData) {
   }
 }
 
+function parsePositiveNumber(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
 export default function ShowDetail() {
   const queryClient = useQueryClient();
   const urlParams = new URLSearchParams(window.location.search);
@@ -87,10 +100,8 @@ export default function ShowDetail() {
     deployment_type: 'ground_stack',
     voltage_mode: '208v',
     power_strategy: 'edison_20a',
-    base_grid_width_mm: 500,
-    base_grid_height_mm: 500,
-    grid_columns: 8,
-    grid_rows: 4
+    width_m: DEFAULT_WALL_WIDTH_M,
+    height_m: DEFAULT_WALL_HEIGHT_M
   });
 
   const { data: show, isLoading: isLoadingShow, isError: isShowError } = useQuery({
@@ -150,37 +161,44 @@ export default function ShowDetail() {
       deployment_type: 'ground_stack',
       voltage_mode: '208v',
       power_strategy: 'edison_20a',
-      base_grid_width_mm: 500,
-      base_grid_height_mm: 500,
-      grid_columns: 8,
-      grid_rows: 4
+      width_m: DEFAULT_WALL_WIDTH_M,
+      height_m: DEFAULT_WALL_HEIGHT_M
     });
     setEditingWall(null);
   };
 
   const openEditWallDialog = (wall) => {
+    const widthM = ((wall.grid_columns || 0) * (wall.base_grid_width_mm || BASE_GRID_MM)) / 1000;
+    const heightM = ((wall.grid_rows || 0) * (wall.base_grid_height_mm || BASE_GRID_MM)) / 1000;
+
     setEditingWall(wall);
     setWallForm({
       name: wall.name || '',
       deployment_type: wall.deployment_type || 'ground_stack',
       voltage_mode: wall.voltage_mode || '208v',
       power_strategy: wall.power_strategy || 'edison_20a',
-      base_grid_width_mm: wall.base_grid_width_mm || 500,
-      base_grid_height_mm: wall.base_grid_height_mm || 500,
-      grid_columns: wall.grid_columns || 8,
-      grid_rows: wall.grid_rows || 4
+      width_m: widthM > 0 ? Number(widthM.toFixed(2)) : DEFAULT_WALL_WIDTH_M,
+      height_m: heightM > 0 ? Number(heightM.toFixed(2)) : DEFAULT_WALL_HEIGHT_M
     });
     setShowWallDialog(true);
   };
 
   const handleSubmitWall = () => {
+    const widthM = parsePositiveNumber(wallForm.width_m, DEFAULT_WALL_WIDTH_M);
+    const heightM = parsePositiveNumber(wallForm.height_m, DEFAULT_WALL_HEIGHT_M);
+    const gridColumns = Math.max(1, Math.round(widthM / GRID_UNIT_M));
+    const gridRows = Math.max(1, Math.round(heightM / GRID_UNIT_M));
+
     const data = {
       ...wallForm,
-      base_grid_width_mm: Number(wallForm.base_grid_width_mm),
-      base_grid_height_mm: Number(wallForm.base_grid_height_mm),
-      grid_columns: Number(wallForm.grid_columns),
-      grid_rows: Number(wallForm.grid_rows)
+      base_grid_width_mm: BASE_GRID_MM,
+      base_grid_height_mm: BASE_GRID_MM,
+      grid_columns: gridColumns,
+      grid_rows: gridRows
     };
+    delete data.width_m;
+    delete data.height_m;
+
     if (editingWall) {
       updateWall.mutate({ id: editingWall.id, data });
     } else {
@@ -205,6 +223,13 @@ export default function ShowDetail() {
 
     return { panels: layout.length, weight, powerTyp, widthM, heightM };
   };
+
+  const previewWidthM = parsePositiveNumber(wallForm.width_m, DEFAULT_WALL_WIDTH_M);
+  const previewHeightM = parsePositiveNumber(wallForm.height_m, DEFAULT_WALL_HEIGHT_M);
+  const previewColumns = Math.max(1, Math.round(previewWidthM / GRID_UNIT_M));
+  const previewRows = Math.max(1, Math.round(previewHeightM / GRID_UNIT_M));
+  const snappedWidthM = (previewColumns * GRID_UNIT_M).toFixed(1);
+  const snappedHeightM = (previewRows * GRID_UNIT_M).toFixed(1);
 
   if (isLoadingShow) {
     return (
@@ -340,43 +365,30 @@ export default function ShowDetail() {
                 <Separator className="bg-slate-700" />
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>Base Grid Width (mm)</Label>
+                    <Label>Wall Width (m)</Label>
                     <Input 
                       type="number"
-                      value={wallForm.base_grid_width_mm}
-                      onChange={(e) => setWallForm({ ...wallForm, base_grid_width_mm: e.target.value })}
+                      min="0.5"
+                      step="0.5"
+                      value={wallForm.width_m}
+                      onChange={(e) => setWallForm({ ...wallForm, width_m: e.target.value })}
                       className="bg-slate-700 border-slate-600 mt-1"
                     />
                   </div>
                   <div>
-                    <Label>Base Grid Height (mm)</Label>
+                    <Label>Wall Height (m)</Label>
                     <Input 
                       type="number"
-                      value={wallForm.base_grid_height_mm}
-                      onChange={(e) => setWallForm({ ...wallForm, base_grid_height_mm: e.target.value })}
+                      min="0.5"
+                      step="0.5"
+                      value={wallForm.height_m}
+                      onChange={(e) => setWallForm({ ...wallForm, height_m: e.target.value })}
                       className="bg-slate-700 border-slate-600 mt-1"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Columns</Label>
-                    <Input 
-                      type="number"
-                      value={wallForm.grid_columns}
-                      onChange={(e) => setWallForm({ ...wallForm, grid_columns: e.target.value })}
-                      className="bg-slate-700 border-slate-600 mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Rows</Label>
-                    <Input 
-                      type="number"
-                      value={wallForm.grid_rows}
-                      onChange={(e) => setWallForm({ ...wallForm, grid_rows: e.target.value })}
-                      className="bg-slate-700 border-slate-600 mt-1"
-                    />
-                  </div>
+                <div className="rounded-md border border-slate-700 bg-slate-900/30 px-3 py-2 text-sm text-slate-300">
+                  Fixed base grid: 500x500mm. Snapped canvas: {snappedWidthM}m x {snappedHeightM}m ({previewColumns} cols x {previewRows} rows).
                 </div>
                 <Button onClick={handleSubmitWall} className="w-full bg-blue-600 hover:bg-blue-700">
                   {editingWall ? 'Update Wall' : 'Create Wall'}
