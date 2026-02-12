@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -19,6 +19,8 @@ import {
 import { mergeFamiliesWithPopular, mergeVariantsWithPopular } from '@/lib/popular-catalog';
 
 export default function Home() {
+  const [logoLoadError, setLogoLoadError] = useState(false);
+
   const { data: shows = [] } = useQuery({
     queryKey: ['shows'],
     queryFn: () => base44.entities.Show.list('-created_date', 5)
@@ -47,13 +49,24 @@ export default function Home() {
       <div className="max-w-7xl mx-auto p-6">
         {/* Hero Section */}
         <div className="text-center py-12 mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/20 rounded-full text-blue-400 text-sm mb-4">
-            <Monitor className="w-4 h-4" />
-            LED Wall Deployment Designer
-          </div>
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            Design. Plan. Deploy.
+            LED Wall Designer
           </h1>
+          <div className="mb-6 flex items-center justify-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-slate-600 bg-slate-800">
+              {!logoLoadError ? (
+                <img
+                  src="/starsound-logo.svg"
+                  alt="Starsound logo"
+                  className="h-full w-full object-cover"
+                  onError={() => setLogoLoadError(true)}
+                />
+              ) : (
+                <Monitor className="h-5 w-5 text-blue-300" />
+              )}
+            </span>
+            <p className="text-base font-medium text-slate-300 md:text-lg">By Starsound</p>
+          </div>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-8">
             Professional LED wall deployment planning tool for touring video engineers. 
             Mixed cabinet sizes, voltage-aware power planning, and crew-ready printouts.
