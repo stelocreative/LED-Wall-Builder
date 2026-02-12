@@ -8,11 +8,7 @@ import {
 
 const DATA_PATH_COLOR = '#f59e0b';
 const DATA_PATH_OUTLINE = '#111827';
-const DATA_PATH_STROKE = 3;
-const DATA_PATH_OUTLINE_STROKE = 5;
 const POWER_PATH_OUTLINE = '#111827';
-const POWER_PATH_STROKE = 2.4;
-const POWER_PATH_OUTLINE_STROKE = 4.2;
 const POWER_CIRCUIT_PALETTE = [
   { stroke: '#ef4444', fill: '#ef4444' },
   { stroke: '#8b5cf6', fill: '#8b5cf6' },
@@ -193,9 +189,44 @@ const DeploymentSheet = forwardRef(({
 
   const safeGridCols = Math.max(1, Number(gridCols) || 1);
   const safeGridRows = Math.max(1, Number(gridRows) || 1);
-  const cellSize = Math.max(12, Math.floor(Math.min(680 / safeGridCols, 760 / safeGridRows)));
+  const DIAGRAM_MAX_WIDTH = 740;
+  const DIAGRAM_MAX_HEIGHT = 940;
+  const diagramPadding = 24;
+  const cellSize = Math.max(
+    10,
+    Math.floor(
+      Math.min(
+        (DIAGRAM_MAX_WIDTH - diagramPadding * 2) / safeGridCols,
+        (DIAGRAM_MAX_HEIGHT - diagramPadding * 2) / safeGridRows
+      )
+    )
+  );
   const canvasWidth = safeGridCols * cellSize;
   const canvasHeight = safeGridRows * cellSize;
+  const svgWidth = canvasWidth + diagramPadding * 2;
+  const svgHeight = canvasHeight + diagramPadding * 2;
+
+  const dataLineStroke = Math.max(1.1, Math.min(2.4, cellSize * 0.055));
+  const dataOutlineStroke = dataLineStroke + 1.2;
+  const powerLineStroke = Math.max(1.0, Math.min(2.1, cellSize * 0.05));
+  const powerOutlineStroke = powerLineStroke + 1.1;
+
+  const dataArrowWidth = Math.max(5, Math.min(8.5, cellSize * 0.17));
+  const dataArrowHeight = Math.max(4, dataArrowWidth * 0.68);
+  const dataArrowRefX = dataArrowWidth * 0.84;
+  const dataArrowRefY = dataArrowHeight / 2;
+  const dataArrowPoints = `0 0, ${dataArrowWidth} ${dataArrowRefY}, 0 ${dataArrowHeight}`;
+
+  const powerArrowWidth = Math.max(4.5, Math.min(7.5, cellSize * 0.15));
+  const powerArrowHeight = Math.max(3.5, powerArrowWidth * 0.66);
+  const powerArrowRefX = powerArrowWidth * 0.82;
+  const powerArrowRefY = powerArrowHeight / 2;
+  const powerArrowPoints = `0 0, ${powerArrowWidth} ${powerArrowRefY}, 0 ${powerArrowHeight}`;
+
+  const circuitTagWidth = Math.max(14, Math.min(20, cellSize * 0.42));
+  const circuitTagHeight = Math.max(8, Math.min(12, cellSize * 0.28));
+  const circuitTagFont = Math.max(5, Math.min(6.5, cellSize * 0.16));
+  const cabinetLabelFont = Math.max(6, Math.min(10, cellSize * 0.24));
   const pageBreakAfterStyle = { breakAfter: 'page', pageBreakAfter: 'always' };
   const hasLoomSection = loomBundles.length > 0;
   const hasDataRunsSection = dataRuns.length > 0;
@@ -262,7 +293,10 @@ const DeploymentSheet = forwardRef(({
     });
   });
 
-  const powerEntryY = powerOriginSide === 'top' ? -10 : canvasHeight + 10;
+  const powerEntryOffset = Math.max(8, Math.min(16, cellSize * 0.28));
+  const socaBaseOffset = powerEntryOffset + Math.max(4, Math.min(10, cellSize * 0.16));
+  const socaSpacing = Math.max(5, Math.min(10, cellSize * 0.18));
+  const powerEntryY = powerOriginSide === 'top' ? -powerEntryOffset : canvasHeight + powerEntryOffset;
   const socapexTailCount = socapexMode ? Math.max(1, Math.ceil(powerCircuitsForDrawing.length / 6)) : 0;
 
   return (
@@ -431,22 +465,22 @@ const DeploymentSheet = forwardRef(({
       {/* Wall Diagram */}
       <div className="border border-gray-300 p-4 min-h-[9.7in] flex flex-col justify-start">
         <h3 className="font-bold text-sm mb-3">WALL DIAGRAM</h3>
-        <div className="flex justify-center">
+        <div className="flex justify-center flex-1 items-start">
           <svg 
-            width={canvasWidth + 60} 
-            height={canvasHeight + 60} 
+            width={svgWidth} 
+            height={svgHeight} 
             className="border border-gray-200"
           >
             {/* Dimension labels */}
-            <text x={canvasWidth/2 + 30} y={15} textAnchor="middle" fontSize="10" fill="#666">
+            <text x={canvasWidth / 2 + diagramPadding} y={10} textAnchor="middle" fontSize="10" fill="#666">
               {mmToM(safeGridCols * baseGridWidth)}m ({mmToFt(safeGridCols * baseGridWidth)}')
             </text>
-            <text x={15} y={canvasHeight/2 + 30} textAnchor="middle" fontSize="10" fill="#666" 
-                  transform={`rotate(-90, 15, ${canvasHeight/2 + 30})`}>
+            <text x={11} y={canvasHeight / 2 + diagramPadding} textAnchor="middle" fontSize="10" fill="#666" 
+                  transform={`rotate(-90, 11, ${canvasHeight / 2 + diagramPadding})`}>
               {mmToM(safeGridRows * baseGridHeight)}m ({mmToFt(safeGridRows * baseGridHeight)}')
             </text>
             
-            <g transform="translate(30, 30)">
+            <g transform={`translate(${diagramPadding}, ${diagramPadding})`}>
               {/* Grid */}
               {Array.from({ length: safeGridRows + 1 }).map((_, i) => (
                 <line key={`h${i}`} x1={0} y1={i * cellSize} x2={canvasWidth} y2={i * cellSize} 
@@ -476,27 +510,27 @@ const DeploymentSheet = forwardRef(({
                           stroke={powerCircuit ? powerCircuit.color.stroke : '#000'}
                           strokeWidth={powerCircuit ? "1.8" : "1"} />
                     <text x={x + w/2} y={y + h/2} textAnchor="middle" dominantBaseline="middle" 
-                          fontSize="8" fontWeight="bold" fill="#fff">
+                          fontSize={cabinetLabelFont} fontWeight="bold" fill="#fff">
                       {item.label}
                     </text>
                     {powerCircuit && (
                       <>
                         <rect
-                          x={x + w - 18}
+                          x={x + w - circuitTagWidth - 2}
                           y={y + 2}
-                          width="16"
-                          height="10"
+                          width={circuitTagWidth}
+                          height={circuitTagHeight}
                           rx="2"
                           fill={powerCircuit.color.fill}
                           stroke={POWER_PATH_OUTLINE}
                           strokeWidth="0.8"
                         />
                         <text
-                          x={x + w - 10}
-                          y={y + 7}
+                          x={x + w - (circuitTagWidth / 2) - 2}
+                          y={y + (circuitTagHeight / 2) + 2}
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          fontSize="6"
+                          fontSize={circuitTagFont}
                           fontWeight="bold"
                           fill="#fff"
                         >
@@ -510,7 +544,9 @@ const DeploymentSheet = forwardRef(({
 
               {/* Socapex trunk runs */}
               {socapexMode && socapexTailCount > 0 && Array.from({ length: socapexTailCount }).map((_, tailIndex) => {
-                const busY = powerOriginSide === 'top' ? -14 - (tailIndex * 8) : canvasHeight + 14 + (tailIndex * 8);
+                const busY = powerOriginSide === 'top'
+                  ? -(socaBaseOffset + (tailIndex * socaSpacing))
+                  : canvasHeight + socaBaseOffset + (tailIndex * socaSpacing);
                 return (
                   <g key={`soca-tail-${tailIndex}`}>
                     <line
@@ -519,7 +555,7 @@ const DeploymentSheet = forwardRef(({
                       x2={canvasWidth}
                       y2={busY}
                       stroke={POWER_PATH_OUTLINE}
-                      strokeWidth={POWER_PATH_OUTLINE_STROKE + 0.8}
+                      strokeWidth={powerOutlineStroke + 0.7}
                       strokeLinecap="round"
                     />
                     <line
@@ -528,7 +564,7 @@ const DeploymentSheet = forwardRef(({
                       x2={canvasWidth}
                       y2={busY}
                       stroke="#7c3aed"
-                      strokeWidth={POWER_PATH_STROKE + 0.8}
+                      strokeWidth={powerLineStroke + 0.6}
                       strokeLinecap="round"
                     />
                     <text
@@ -550,7 +586,9 @@ const DeploymentSheet = forwardRef(({
                 if (!firstCabinet) return null;
 
                 const anchorX = Math.max(6, Math.min(canvasWidth - 6, circuit.avgX));
-                const busY = powerOriginSide === 'top' ? -14 - (circuit.tailIndex * 8) : canvasHeight + 14 + (circuit.tailIndex * 8);
+                const busY = powerOriginSide === 'top'
+                  ? -(socaBaseOffset + (circuit.tailIndex * socaSpacing))
+                  : canvasHeight + socaBaseOffset + (circuit.tailIndex * socaSpacing);
                 const firstEntryY = powerOriginSide === 'top' ? firstCabinet.entryTopY : firstCabinet.entryBottomY;
                 const homeRunPoints = orthogonalPoints(anchorX, powerEntryY, firstCabinet.cx, firstEntryY);
 
@@ -562,7 +600,7 @@ const DeploymentSheet = forwardRef(({
                           points={`${anchorX},${busY} ${anchorX},${powerEntryY}`}
                           fill="none"
                           stroke={POWER_PATH_OUTLINE}
-                          strokeWidth={POWER_PATH_OUTLINE_STROKE}
+                          strokeWidth={powerOutlineStroke}
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
@@ -570,7 +608,7 @@ const DeploymentSheet = forwardRef(({
                           points={`${anchorX},${busY} ${anchorX},${powerEntryY}`}
                           fill="none"
                           stroke={circuit.color.stroke}
-                          strokeWidth={POWER_PATH_STROKE}
+                          strokeWidth={powerLineStroke}
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
@@ -581,7 +619,7 @@ const DeploymentSheet = forwardRef(({
                       points={homeRunPoints}
                       fill="none"
                       stroke={POWER_PATH_OUTLINE}
-                      strokeWidth={POWER_PATH_OUTLINE_STROKE}
+                      strokeWidth={powerOutlineStroke}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
@@ -589,7 +627,7 @@ const DeploymentSheet = forwardRef(({
                       points={homeRunPoints}
                       fill="none"
                       stroke={circuit.color.stroke}
-                      strokeWidth={POWER_PATH_STROKE}
+                      strokeWidth={powerLineStroke}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       markerEnd={`url(#${circuit.markerId})`}
@@ -607,7 +645,7 @@ const DeploymentSheet = forwardRef(({
                             points={points}
                             fill="none"
                             stroke={POWER_PATH_OUTLINE}
-                            strokeWidth={POWER_PATH_OUTLINE_STROKE - 0.5}
+                            strokeWidth={Math.max(1.4, powerOutlineStroke - 0.4)}
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
@@ -615,7 +653,7 @@ const DeploymentSheet = forwardRef(({
                             points={points}
                             fill="none"
                             stroke={circuit.color.stroke}
-                            strokeWidth={POWER_PATH_STROKE - 0.3}
+                            strokeWidth={Math.max(1.0, powerLineStroke - 0.25)}
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             markerEnd={`url(#${circuit.markerId})`}
@@ -658,7 +696,7 @@ const DeploymentSheet = forwardRef(({
                         points={points}
                         fill="none"
                         stroke={DATA_PATH_OUTLINE}
-                        strokeWidth={DATA_PATH_OUTLINE_STROKE}
+                        strokeWidth={dataOutlineStroke}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         opacity="0.9"
@@ -667,7 +705,7 @@ const DeploymentSheet = forwardRef(({
                         points={points}
                         fill="none"
                         stroke={DATA_PATH_COLOR}
-                        strokeWidth={DATA_PATH_STROKE}
+                        strokeWidth={dataLineStroke}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         markerEnd="url(#arrow-data)"
@@ -680,12 +718,29 @@ const DeploymentSheet = forwardRef(({
             
             <defs>
               {powerCircuitsForDrawing.map((circuit) => (
-                <marker key={circuit.markerId} id={circuit.markerId} markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
-                  <polygon points="0 0, 12 4, 0 8" fill={circuit.color.fill} stroke={POWER_PATH_OUTLINE} strokeWidth="0.7" />
+                <marker
+                  key={circuit.markerId}
+                  id={circuit.markerId}
+                  markerWidth={powerArrowWidth}
+                  markerHeight={powerArrowHeight}
+                  refX={powerArrowRefX}
+                  refY={powerArrowRefY}
+                  orient="auto"
+                  markerUnits="userSpaceOnUse"
+                >
+                  <polygon points={powerArrowPoints} fill={circuit.color.fill} stroke={POWER_PATH_OUTLINE} strokeWidth="0.65" />
                 </marker>
               ))}
-              <marker id="arrow-data" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto">
-                <polygon points="0 0, 14 5, 0 10" fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth="0.9" />
+              <marker
+                id="arrow-data"
+                markerWidth={dataArrowWidth}
+                markerHeight={dataArrowHeight}
+                refX={dataArrowRefX}
+                refY={dataArrowRefY}
+                orient="auto"
+                markerUnits="userSpaceOnUse"
+              >
+                <polygon points={dataArrowPoints} fill={DATA_PATH_COLOR} stroke={DATA_PATH_OUTLINE} strokeWidth="0.75" />
               </marker>
             </defs>
           </svg>
