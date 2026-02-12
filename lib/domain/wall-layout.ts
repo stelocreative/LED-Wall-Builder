@@ -104,7 +104,7 @@ export function wallAreaSqM(widthUnits: number, heightUnits: number): number {
 
 export function validateNoOverlap(cabinets: CabinetPlacement[], widthUnits: number, heightUnits: number): string[] {
   const errors: string[] = [];
-  const map = Array.from({ length: heightUnits }, () => Array(widthUnits).fill<string | null>(null));
+  const map = Array.from({ length: heightUnits }, () => Array<string | null>(widthUnits).fill(null));
 
   for (const cabinet of cabinets) {
     if (
