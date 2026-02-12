@@ -103,6 +103,7 @@ export default function ShowDetail() {
     processor_model: 'mx30',
     receiving_card: 'a8s',
     color_depth: '10bit',
+    data_snake_block_columns: 3,
     width_m: DEFAULT_WALL_WIDTH_M,
     height_m: DEFAULT_WALL_HEIGHT_M
   });
@@ -167,6 +168,7 @@ export default function ShowDetail() {
       processor_model: 'mx30',
       receiving_card: 'a8s',
       color_depth: '10bit',
+      data_snake_block_columns: 3,
       width_m: DEFAULT_WALL_WIDTH_M,
       height_m: DEFAULT_WALL_HEIGHT_M
     });
@@ -186,6 +188,7 @@ export default function ShowDetail() {
       processor_model: wall.processor_model || 'mx30',
       receiving_card: wall.receiving_card || 'a8s',
       color_depth: wall.color_depth || '10bit',
+      data_snake_block_columns: wall.data_snake_block_columns || 3,
       width_m: widthM > 0 ? Number(widthM.toFixed(2)) : DEFAULT_WALL_WIDTH_M,
       height_m: heightM > 0 ? Number(heightM.toFixed(2)) : DEFAULT_WALL_HEIGHT_M
     });

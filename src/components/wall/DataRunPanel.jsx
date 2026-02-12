@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,14 @@ function parseLoomBundlesSafe(value) {
   }
 }
 
+function parsePositiveInteger(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+}
+
 export default function DataRunPanel({
   layout,
   cabinets,
@@ -54,6 +63,7 @@ export default function DataRunPanel({
     receivingCard,
     colorDepth
   });
+  const snakeBlockColumns = parsePositiveInteger(wall?.data_snake_block_columns, 3);
 
   const totalWallPixels = getWallPixelLoad(layout, cabinets);
   const wallExceedsProcessorLimit = totalWallPixels > dataCapacity.maxDevicePixels;
@@ -98,11 +108,12 @@ export default function DataRunPanel({
     return deploymentType === 'flown' ? `${side} top` : `${side} bottom`;
   };
 
-  const buildRunsFromGroups = (groups, modeLabel) => {
+  const buildRunsFromGroups = (groups, modeLabel, options = {}) => {
     if (!layout.length) {
       return [];
     }
 
+    const splitOnBudget = options.splitOnBudget !== false;
     const preferredEdge = getPreferredStartEdge();
     const loomBundles = parseLoomBundlesSafe(wall?.loom_bundles);
     const budget = dataCapacity.perPortPixelBudget;
@@ -135,6 +146,13 @@ export default function DataRunPanel({
     groups.forEach((group, groupIndex) => {
       const items = group.items || [];
       const groupLabel = group.label || `Group ${groupIndex + 1}`;
+
+      if (!splitOnBudget) {
+        const pixelLoad = items.reduce((sum, item) => sum + getLayoutItemPixelLoad(item, cabinets), 0);
+        pushRun(items.map((item) => item.id), pixelLoad, `${modeLabel} • ${groupLabel}`);
+        return;
+      }
+
       let currentPath = [];
       let currentPixels = 0;
 
@@ -192,17 +210,82 @@ export default function DataRunPanel({
     }
 
     const orderedRows = Array.from(new Set(layout.map((item) => item.row))).sort((a, b) => a - b);
-    const sorted = orderedRows.flatMap((rowValue, rowIndex) => {
-      const rowItems = layout
-        .filter((item) => item.row === rowValue)
-        .sort((a, b) => a.col - b.col);
-      return rowIndex % 2 === 0 ? rowItems : [...rowItems].reverse();
-    });
+    const minCol = Math.min(...layout.map((item) => item.col));
+    const maxCol = Math.max(...layout.map((item) => item.col));
+    const allColumns = Array.from({ length: maxCol - minCol + 1 }, (_, idx) => minCol + idx);
+    const budget = dataCapacity.perPortPixelBudget;
 
-    const runs = buildRunsFromGroups(
-      [{ label: "Snake Rows", items: sorted }],
-      "Auto Snake"
-    );
+    const columnPixelLoad = (column) =>
+      layout
+        .filter((item) => item.col === column)
+        .reduce((sum, item) => sum + getLayoutItemPixelLoad(item, cabinets), 0);
+
+    const splitColumnsForBudget = (columns) => {
+      const groups = [];
+      let current = [];
+      let currentPixels = 0;
+
+      columns.forEach((column) => {
+        const colPixels = columnPixelLoad(column);
+        if (colPixels <= 0) {
+          return;
+        }
+
+        if (current.length > 0 && currentPixels + colPixels > budget) {
+          groups.push(current);
+          current = [column];
+          currentPixels = colPixels;
+          return;
+        }
+
+        current.push(column);
+        currentPixels += colPixels;
+      });
+
+      if (current.length) {
+        groups.push(current);
+      }
+
+      return groups;
+    };
+
+    const snakeGroups = [];
+
+    for (let start = 0; start < allColumns.length; start += snakeBlockColumns) {
+      const blockColumns = allColumns.slice(start, start + snakeBlockColumns);
+      const subGroups = splitColumnsForBudget(blockColumns);
+
+      subGroups.forEach((colGroup) => {
+        const orderedItems = [];
+        let snakeRowIndex = 0;
+
+        orderedRows.forEach((rowValue) => {
+          const rowItems = layout
+            .filter((item) => item.row === rowValue && colGroup.includes(item.col))
+            .sort((a, b) => a.col - b.col);
+          if (!rowItems.length) {
+            return;
+          }
+
+          const rowSequence = snakeRowIndex % 2 === 0 ? rowItems : [...rowItems].reverse();
+          orderedItems.push(...rowSequence);
+          snakeRowIndex += 1;
+        });
+
+        if (!orderedItems.length) {
+          return;
+        }
+
+        const startCol = Math.min(...colGroup) + 1;
+        const endCol = Math.max(...colGroup) + 1;
+        snakeGroups.push({
+          label: `Cols ${startCol}-${endCol} x ${orderedRows.length} rows`,
+          items: orderedItems
+        });
+      });
+    }
+
+    const runs = buildRunsFromGroups(snakeGroups, "Auto Snake Blocks", { splitOnBudget: false });
 
     onDataRunsChange(runs);
     reportAutoRouteResult(runs);
@@ -325,6 +408,26 @@ export default function DataRunPanel({
           </div>
           <div className="rounded-md border border-slate-700 bg-slate-900/30 px-3 py-2 text-xs text-slate-300">
             Per-port budget @60Hz: {dataCapacity.perPortPixelBudget.toLocaleString()} px. Processor max: {dataCapacity.maxDevicePixels.toLocaleString()} px across {dataCapacity.ethernetPorts} ports.
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-slate-400 text-xs">Snake Block Columns</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={snakeBlockColumns}
+                onChange={(e) =>
+                  onWallUpdate?.({
+                    data_snake_block_columns: parsePositiveInteger(e.target.value, 3)
+                  })
+                }
+                className="bg-slate-700 border-slate-600 mt-1 text-white"
+              />
+            </div>
+            <div className="rounded-md border border-slate-700 bg-slate-900/30 px-3 py-2 text-[11px] text-slate-300 self-end">
+              Snake starts from top row of each block. Ground-stack looms stay bottom-origin; flown looms stay top-origin.
+            </div>
           </div>
         </div>
 
