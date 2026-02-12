@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Button } from "@/components/ui/button";
+import { useAuth } from '@/lib/AuthContext';
 import { 
   Monitor, 
   Package, 
@@ -11,8 +12,42 @@ import {
   X
 } from 'lucide-react';
 
+const resolveBrandLogoUrl = (appPublicSettings) => {
+  const settings = appPublicSettings?.public_settings ?? appPublicSettings ?? {};
+  const candidates = [
+    settings?.branding?.logoUrl,
+    settings?.branding?.logo_url,
+    settings?.logoUrl,
+    settings?.logo_url,
+    settings?.brandLogoUrl,
+    settings?.brand_logo_url,
+    settings?.company?.logoUrl,
+    settings?.company?.logo_url
+  ];
+  return candidates.find((value) => typeof value === 'string' && value.trim().length > 0) || null;
+};
+
 export default function Layout({ children, currentPageName }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [logoIndex, setLogoIndex] = React.useState(0);
+  const { appPublicSettings } = useAuth();
+
+  const runtimeLogoUrl = React.useMemo(() => resolveBrandLogoUrl(appPublicSettings), [appPublicSettings]);
+  const logoCandidates = React.useMemo(() => {
+    const unique = [];
+    for (const candidate of [runtimeLogoUrl, '/starsound-logo.png', '/starsound-logo.svg']) {
+      if (candidate && !unique.includes(candidate)) {
+        unique.push(candidate);
+      }
+    }
+    return unique;
+  }, [runtimeLogoUrl]);
+
+  React.useEffect(() => {
+    setLogoIndex(0);
+  }, [runtimeLogoUrl]);
+
+  const activeLogoSrc = logoCandidates[logoIndex] || null;
 
   const navItems = [
     { name: 'Home', icon: Home, page: 'Home' },
@@ -34,12 +69,23 @@ export default function Layout({ children, currentPageName }) {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link to={createPageUrl('Home')} className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                <Monitor className="w-6 h-6 text-white" />
+              <div className="h-10 w-10 rounded-lg border border-slate-600 bg-slate-700/60 flex items-center justify-center overflow-hidden">
+                {activeLogoSrc ? (
+                  <img
+                    src={activeLogoSrc}
+                    alt="Starsound logo"
+                    className="h-full w-full object-cover"
+                    onError={() => {
+                      setLogoIndex((prev) => (prev + 1 < logoCandidates.length ? prev + 1 : logoCandidates.length));
+                    }}
+                  />
+                ) : (
+                  <Monitor className="w-6 h-6 text-blue-300" />
+                )}
               </div>
               <div className="hidden sm:block">
                 <h1 className="font-bold text-white">LED Wall Designer</h1>
-                <p className="text-xs text-slate-400">Deployment Planner</p>
+                <p className="text-xs text-slate-300">By Starsound</p>
               </div>
             </Link>
 
