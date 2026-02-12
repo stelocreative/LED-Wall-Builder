@@ -6,10 +6,19 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit2, Trash2, Package, Layers } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, Layers, Database } from 'lucide-react';
 import CabinetCard from '../components/library/CabinetCard';
 import CabinetForm from '../components/library/CabinetForm';
 import FamilyForm from '../components/library/FamilyForm';
+import {
+  POPULAR_CABINET_VARIANTS,
+  POPULAR_PANEL_FAMILIES,
+  familyLookupKey
+} from '@/lib/popular-catalog';
+
+function normalize(text) {
+  return String(text || '').trim().toLowerCase();
+}
 
 export default function CabinetLibrary() {
   const queryClient = useQueryClient();
@@ -18,6 +27,7 @@ export default function CabinetLibrary() {
   const [showCabinetForm, setShowCabinetForm] = useState(false);
   const [editingFamily, setEditingFamily] = useState(null);
   const [editingCabinet, setEditingCabinet] = useState(null);
+  const [seedMessage, setSeedMessage] = useState('');
 
   const { data: families = [] } = useQuery({
     queryKey: ['panelFamilies'],
@@ -75,6 +85,62 @@ export default function CabinetLibrary() {
     onSuccess: () => queryClient.invalidateQueries(['cabinetVariants'])
   });
 
+  const seedPopularCatalog = useMutation({
+    mutationFn: async () => {
+      const freshFamilies = await base44.entities.PanelFamily.list();
+      const familyMap = new Map(
+        freshFamilies.map((family) => [familyLookupKey(family.manufacturer, family.family_name), family])
+      );
+
+      let createdFamilies = 0;
+      for (const seedFamily of POPULAR_PANEL_FAMILIES) {
+        const lookup = familyLookupKey(seedFamily.manufacturer, seedFamily.family_name);
+        if (familyMap.has(lookup)) {
+          continue;
+        }
+        const created = await base44.entities.PanelFamily.create(seedFamily);
+        familyMap.set(lookup, created);
+        createdFamilies += 1;
+      }
+
+      const freshVariants = await base44.entities.CabinetVariant.list();
+      const variantKeys = new Set(
+        freshVariants.map((variant) => `${variant.panel_family_id}::${normalize(variant.variant_name)}`)
+      );
+
+      let createdVariants = 0;
+      for (const seedVariant of POPULAR_CABINET_VARIANTS) {
+        const family = familyMap.get(seedVariant.familyKey);
+        if (!family?.id) {
+          continue;
+        }
+        const variantKey = `${family.id}::${normalize(seedVariant.variant.variant_name)}`;
+        if (variantKeys.has(variantKey)) {
+          continue;
+        }
+        await base44.entities.CabinetVariant.create({
+          ...seedVariant.variant,
+          panel_family_id: family.id
+        });
+        variantKeys.add(variantKey);
+        createdVariants += 1;
+      }
+
+      return {
+        createdFamilies,
+        createdVariants
+      };
+    },
+    onSuccess: ({ createdFamilies, createdVariants }) => {
+      queryClient.invalidateQueries(['panelFamilies']);
+      queryClient.invalidateQueries(['cabinetVariants']);
+      setSeedMessage(`Catalog seeded: +${createdFamilies} families, +${createdVariants} variants.`);
+    },
+    onError: (error) => {
+      setSeedMessage(error?.message || 'Unable to seed catalog.');
+    }
+  });
+
   const handleSaveFamily = (data) => {
     if (editingFamily?.id) {
       updateFamily.mutate({ id: editingFamily.id, data });
@@ -112,6 +178,14 @@ export default function CabinetLibrary() {
             <p className="text-slate-400 mt-1">Manage LED panel families and cabinet variants</p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              onClick={() => seedPopularCatalog.mutate()}
+              disabled={seedPopularCatalog.isPending}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              <Database className="w-4 h-4 mr-2" />
+              {seedPopularCatalog.isPending ? 'Seeding...' : 'Seed Popular Catalog'}
+            </Button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
@@ -123,6 +197,12 @@ export default function CabinetLibrary() {
             </div>
           </div>
         </div>
+
+        {seedMessage ? (
+          <div className="mb-4 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-200">
+            {seedMessage}
+          </div>
+        ) : null}
 
         <Tabs defaultValue="cabinets" className="space-y-6">
           <TabsList className="bg-slate-800">

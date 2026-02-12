@@ -28,6 +28,17 @@ VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
 
 Run the app: `npm run dev`
 
+## Quick Start: Seed Popular Touring Cabinets
+
+In the app, open `Cabinet Library` and click `Seed Popular Catalog`.
+
+This preloads common families and variants for:
+- Chauvet Professional F4X IP (`500x500`, `500x1000`)
+- Absen PL3.9 Pro V2 (`500x500`, `500x1000`)
+- ROE Visual Black Pearl V2, Ruby, Diamond (common `500x500` touring variants)
+
+All seeded power/planning values are editable in the library.
+
 **Publish your changes**
 
 Open [Base44.com](http://Base44.com) and click on Publish.
