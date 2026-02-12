@@ -11,6 +11,44 @@ const DATA_PATH_OUTLINE = '#111827';
 const DATA_PATH_STROKE = 3;
 const DATA_PATH_OUTLINE_STROKE = 5;
 
+function parseArraySafe(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getDefaultChecklist(deploymentType) {
+  const baseItems = [
+    { id: 'power-distro', text: 'Power distro verified and grounded', checked: false },
+    { id: 'controller', text: 'Controller/processor configured and tested', checked: false },
+    { id: 'spare-count', text: 'Spare cabinets counted and labeled', checked: false },
+    { id: 'data-jumpers', text: 'Data jumpers inspected and ready', checked: false },
+    { id: 'power-jumpers', text: 'Power jumpers inspected and ready', checked: false }
+  ];
+
+  if (deploymentType === 'flown') {
+    return [
+      { id: 'rigging-cert', text: 'Rigging hardware certified and inspected', checked: false },
+      { id: 'weight-check', text: 'Total weight verified against trim capacity', checked: false },
+      { id: 'truss-inspect', text: 'Truss and motors inspected', checked: false },
+      ...baseItems,
+      { id: 'safety-cables', text: 'Safety cables installed on all panels', checked: false }
+    ];
+  }
+
+  return [
+    { id: 'ground-support', text: 'Ground support/base inspected and leveled', checked: false },
+    { id: 'stability', text: 'Wall stability and bracing checked', checked: false },
+    ...baseItems
+  ];
+}
+
 const DeploymentSheet = forwardRef(({ 
   show, 
   wall, 
@@ -52,6 +90,11 @@ const DeploymentSheet = forwardRef(({
   const runsOverBudget = dataRunMetrics.filter((metric) => metric.overPortBudget).length;
   const receivingCardLabel = receivingCard === 'a10s' ? 'A10s / A10s Pro' : 'A8s';
   const colorDepthLabel = colorDepth === '8bit' ? '8-bit' : '10-bit';
+  const loomBundles = parseArraySafe(wall?.loom_bundles);
+  const storedCrewChecklist = parseArraySafe(wall?.crew_checklist);
+  const crewChecklist = storedCrewChecklist.length
+    ? storedCrewChecklist
+    : getDefaultChecklist(wall?.deployment_type);
 
   // Calculate totals
   const calculateTotals = () => {
@@ -109,6 +152,10 @@ const DeploymentSheet = forwardRef(({
 
   const totals = calculateTotals();
   const ampsFromWatts = (watts) => (watts / voltage).toFixed(1);
+  const dataJumpers = dataRuns.reduce((acc, run) => acc + Math.max(0, (run.path?.length || 0) - 1), 0);
+  const dataHomeRuns = dataRuns.length;
+  const powerJumpers = powerPlan.reduce((acc, circuit) => acc + Math.max(0, (circuit.cabinet_ids?.length || 0) - 1), 0);
+  const powerHomeRuns = powerPlan.length;
 
   const cellSize = 40;
   const canvasWidth = gridCols * cellSize;
@@ -405,7 +452,7 @@ const DeploymentSheet = forwardRef(({
       </div>
 
       {/* Loom Summary */}
-      {wall?.loom_bundles && JSON.parse(wall.loom_bundles).length > 0 && (
+      {loomBundles.length > 0 && (
         <div className="border border-gray-300 p-4 mb-6">
           <h3 className="font-bold text-sm mb-3">LOOM BUNDLES</h3>
           <table className="w-full text-xs">
@@ -418,7 +465,7 @@ const DeploymentSheet = forwardRef(({
               </tr>
             </thead>
             <tbody>
-              {JSON.parse(wall.loom_bundles).map((loom, idx) => (
+              {loomBundles.map((loom, idx) => (
                 <tr key={idx} className={idx % 2 ? 'bg-gray-50' : ''}>
                   <td className="py-1">{loom.name}</td>
                   <td>{loom.assignedPorts?.join(', ') || '-'}</td>
@@ -440,7 +487,7 @@ const DeploymentSheet = forwardRef(({
               <tr className="border-b border-gray-400">
                 <th className="text-left py-1">Run</th>
                 <th className="text-left py-1">Port</th>
-                {wall?.loom_bundles && <th className="text-left py-1">Loom</th>}
+                {loomBundles.length > 0 && <th className="text-left py-1">Loom</th>}
                 <th className="text-center py-1">Panels</th>
                 <th className="text-right py-1">Pixels</th>
                 <th className="text-center py-1">Jumpers</th>
@@ -461,7 +508,7 @@ const DeploymentSheet = forwardRef(({
                   <tr key={run.id} className={idx % 2 ? 'bg-gray-50' : ''}>
                     <td className="py-1">{run.label}</td>
                     <td>{run.processor_port || '-'}</td>
-                    {wall?.loom_bundles && <td className="text-xs text-gray-600">{run.loom || '-'}</td>}
+                    {loomBundles.length > 0 && <td className="text-xs text-gray-600">{run.loom || '-'}</td>}
                     <td className="text-center">{run.path?.length || 0}</td>
                     <td className="text-right">{metrics.pixelLoad.toLocaleString()}</td>
                     <td className="text-center">{Math.max(0, (run.path?.length || 0) - 1)}</td>
@@ -522,20 +569,67 @@ const DeploymentSheet = forwardRef(({
         </div>
       )}
 
-      {/* Crew Checklist */}
-      {wall?.crew_checklist && JSON.parse(wall.crew_checklist).length > 0 && (
-        <div className="border border-gray-300 p-4">
-          <h3 className="font-bold text-sm mb-3">CREW CHECKLIST</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {JSON.parse(wall.crew_checklist).map((item, idx) => (
-              <div key={idx} className="flex items-start gap-2 text-xs">
-                <input type="checkbox" className="mt-0.5" />
-                <span>{item.text}</span>
-              </div>
-            ))}
+      {/* Cable Pull List */}
+      <div className="border border-gray-300 p-4 mb-6">
+        <h3 className="font-bold text-sm mb-3">CABLE PULL LIST</h3>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-gray-400">
+              <th className="text-left py-1">Cable Type</th>
+              <th className="text-left py-1">Use</th>
+              <th className="text-right py-1">Qty</th>
+              <th className="text-left py-1">Est. Length</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="py-1">Data Jumpers (RJ45)</td>
+              <td>Panel-to-panel</td>
+              <td className="text-right">{dataJumpers}</td>
+              <td>5ft</td>
+            </tr>
+            <tr className="bg-gray-50">
+              <td className="py-1">Data Home Runs</td>
+              <td>Processor to wall</td>
+              <td className="text-right">{dataHomeRuns}</td>
+              <td>50-100ft</td>
+            </tr>
+            <tr>
+              <td className="py-1">Power Jumpers</td>
+              <td>Panel-to-panel</td>
+              <td className="text-right">{powerJumpers}</td>
+              <td>5ft</td>
+            </tr>
+            <tr className="bg-gray-50">
+              <td className="py-1">Power Feeds / Circuits</td>
+              <td>Distro to wall</td>
+              <td className="text-right">{powerHomeRuns}</td>
+              <td>25-50ft</td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+          <div className="border border-gray-300 p-2">
+            <strong>Total Data Cables:</strong> {dataJumpers + dataHomeRuns}
+          </div>
+          <div className="border border-gray-300 p-2">
+            <strong>Total Power Cables:</strong> {powerJumpers + powerHomeRuns}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Crew Checklist */}
+      <div className="border border-gray-300 p-4">
+        <h3 className="font-bold text-sm mb-3">CREW CHECKLIST</h3>
+        <div className="grid grid-cols-2 gap-2">
+          {crewChecklist.map((item, idx) => (
+            <div key={idx} className="flex items-start gap-2 text-xs">
+              <span className="font-mono">{item.checked ? '[x]' : '[ ]'}</span>
+              <span>{item.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Footer */}
       <div className="mt-6 pt-4 border-t border-gray-300 text-xs text-gray-500 flex justify-between">
